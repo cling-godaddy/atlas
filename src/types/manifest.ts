@@ -1,4 +1,4 @@
-import type { ResolvedConfig } from './config.js';
+import type { ResolvedConfig } from './config';
 
 export interface PageSummary {
   url: string;

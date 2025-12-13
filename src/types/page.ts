@@ -1,4 +1,4 @@
-import type { AuthSignals, RedirectChain, Soft404Signals, UrlAnalysis } from './detection.js';
+import type { AuthSignals, RedirectChain, Soft404Signals, UrlAnalysis } from './detection';
 
 export type AssetType = 'css' | 'image' | 'font' | 'script' | 'other';
 

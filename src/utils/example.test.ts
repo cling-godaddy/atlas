@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { greet, version } from '../index.js';
+import { greet, version } from '../index';
 
 describe('greet', () => {
   it('should return greeting with name', () => {
