@@ -6,7 +6,7 @@ import { extractAssets, extractLinks, extractMetadata, extractStructuredData, ex
 import { getSitemapUrl, parseSitemap } from './sitemap';
 import { geoPresets } from '../config/geo';
 import { resolveIncludeOptions } from '../config/output';
-import { isDynamicUrl } from '../utils/url';
+import { isDynamicUrl, normalizeUrl } from '../utils/url';
 
 import type { GeoPreset, IncludeOptions, OutputProfile, ResolvedConfig } from '../types/config';
 import type {
@@ -220,15 +220,16 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
         // TODO: make configurable via dynamicRoutes: 'skip' | 'once' | 'all'
         const urlsToEnqueue: string[] = [];
         for (const link of internalUrls) {
-          const analysis = isDynamicUrl(link.url);
+          const normalized = normalizeUrl(link.url);
+          const analysis = isDynamicUrl(normalized);
           if (analysis.isDynamic && analysis.pattern) {
             if (seenPatterns.has(analysis.pattern)) {
-              state.skipped.push({ url: link.url, reason: `dynamic:${analysis.pattern}` });
+              state.skipped.push({ url: normalized, reason: `dynamic:${analysis.pattern}` });
               continue;
             }
             seenPatterns.add(analysis.pattern);
           }
-          urlsToEnqueue.push(link.url);
+          urlsToEnqueue.push(normalized);
         }
 
         await context.enqueueLinks({

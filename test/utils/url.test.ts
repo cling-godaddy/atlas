@@ -77,8 +77,8 @@ describe('normalizeUrl', () => {
     expect(normalizeUrl('https://example.com/')).toBe('https://example.com/');
   });
 
-  it('should sort query params alphabetically', () => {
-    expect(normalizeUrl('https://example.com/search?z=3&a=1&m=2')).toBe('https://example.com/search?a=1&m=2&z=3');
+  it('should strip query params', () => {
+    expect(normalizeUrl('https://example.com/search?z=3&a=1&m=2')).toBe('https://example.com/search');
   });
 
   it('should remove hash fragments', () => {

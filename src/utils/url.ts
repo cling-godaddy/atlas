@@ -73,12 +73,8 @@ export function normalizeUrl(url: string): string {
       parsed.pathname = parsed.pathname.slice(0, -1);
     }
 
-    if (parsed.search) {
-      const params = new URLSearchParams(parsed.search);
-      const sortedParams = new URLSearchParams(Array.from(params.entries()).sort((a, b) => a[0].localeCompare(b[0])));
-      parsed.search = sortedParams.toString();
-    }
-
+    // strip query params and hash for deduplication
+    parsed.search = '';
     parsed.hash = '';
 
     return parsed.toString();
