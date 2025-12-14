@@ -6,18 +6,18 @@ import { crawl, writeOutput, generateOutputPath } from '../src/index';
 // ============================================================================
 
 const TEST_SITES = [
-  {
-    name: 'Example.com',
-    url: 'https://example.com',
-    maxPages: 5,
-    maxDepth: 1,
-  },
   // {
-  //   name: 'Your Site',
-  //   url: 'https://your-site.com',
-  //   maxPages: 10,
-  //   maxDepth: 2,
+  //   name: 'Example.com',
+  //   url: 'https://example.com',
+  //   maxPages: 5,
+  //   maxDepth: 1,
   // },
+  {
+    name: 'Starbucks',
+    url: 'https://starbucks.com',
+    maxPages: 10,
+    maxDepth: 2,
+  },
 ];
 
 // ============================================================================
@@ -70,10 +70,9 @@ async function runTest(config: typeof TEST_SITES[0]): Promise<TestResult> {
       console.log(`\n   Sample Page (${firstPage.url}):`);
       console.log(`   - Title: ${firstPage.title}`);
       console.log(`   - Links: ${firstPage.links.length} (${firstPage.links.filter((l) => l.isInternal).length} internal)`);
-      console.log(`   - Assets: ${firstPage.assets.length}`);
-      console.log(`   - Text length: ${firstPage.text.length} chars`);
-      console.log(`   - HTML length: ${firstPage.html.length} chars`);
-
+      if (firstPage.assets) console.log(`   - Assets: ${firstPage.assets.length}`);
+      if (firstPage.text) console.log(`   - Text length: ${firstPage.text.length} chars`);
+      if (firstPage.html) console.log(`   - HTML length: ${firstPage.html.length} chars`);
       if (firstPage.structuredData) {
         console.log(`   - Structured data: ${firstPage.structuredData.jsonLd.length} JSON-LD, ${firstPage.structuredData.microdata.length} microdata`);
       }
