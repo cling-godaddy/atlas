@@ -9,6 +9,7 @@
     "node": ">=22.0.0"
   },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "types": "tsc --noEmit",
@@ -16,6 +17,10 @@
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
+    "test:manual": "npm run build && esbuild scripts/manual-test.ts --bundle --platform=node --format=esm --outfile=dist/manual-test.mjs --packages=external --keep-names=false && node dist/manual-test.mjs",
+    "clean": "rimraf dist output",
+    "clean:dist": "rimraf dist",
+    "clean:output": "rimraf output",
     "prepare": "husky"
   },
   "keywords": [
@@ -35,6 +40,7 @@
     "eslint-plugin-import": "^2.31.0",
     "husky": "^9.1.7",
     "lint-staged": "^15.2.11",
+    "rimraf": "6.1.2",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.19.1",
     "vitest": "^2.1.8"
