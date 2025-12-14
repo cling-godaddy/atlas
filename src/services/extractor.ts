@@ -159,12 +159,9 @@ export async function extractAssets(page: Page, baseUrl: URL): Promise<AssetRef[
       if (seen.has(absoluteUrl)) continue;
       seen.add(absoluteUrl);
 
-      // placeholder values - actual hash and localPath will be set during download
       assets.push({
         url: absoluteUrl,
-        localPath: '',
         type: asset.type as AssetType,
-        hash: '',
       });
     } catch {
       // invalid URL, skip

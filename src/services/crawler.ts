@@ -252,9 +252,7 @@ function trackAssets(
     } else {
       assetMap.set(asset.url, {
         url: asset.url,
-        localPath: asset.localPath,
         type: asset.type,
-        hash: asset.hash,
         referencedBy: [pageUrl],
       });
     }

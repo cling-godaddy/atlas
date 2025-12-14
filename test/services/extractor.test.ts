@@ -235,17 +235,6 @@ describe('extractAssets', () => {
     expect(assets).toHaveLength(1);
     expect(assets[0]).toMatchObject({ url: 'https://example.com/valid.jpg' });
   });
-
-  it('should initialize placeholder fields', async () => {
-    const page = createMockPage(() => [{ url: '/image.jpg', type: 'image' }]);
-
-    const assets = await extractAssets(page, new URL('https://example.com'));
-
-    expect(assets[0]).toMatchObject({
-      localPath: '',
-      hash: '',
-    });
-  });
 });
 
 describe('extractText', () => {

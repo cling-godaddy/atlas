@@ -15,9 +15,7 @@ export interface StructuredData {
  */
 export interface ManifestAsset {
   url: string;
-  localPath: string;
   type: string;
-  hash: string;
   /** URLs of pages that reference this asset */
   referencedBy: string[];
 }

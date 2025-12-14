@@ -4,9 +4,7 @@ export type AssetType = 'css' | 'image' | 'font' | 'script' | 'other';
 
 export interface AssetRef {
   url: string;
-  localPath: string;
   type: AssetType;
-  hash: string;
 }
 
 export interface LinkInfo {
