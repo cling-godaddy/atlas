@@ -6,6 +6,7 @@ import { extractAssets, extractLinks, extractMetadata, extractStructuredData, ex
 import { getSitemapUrl, parseSitemap } from './sitemap';
 import { geoPresets } from '../config/geo';
 import { resolveIncludeOptions } from '../config/output';
+import { isDynamicUrl } from '../utils/url';
 
 import type { GeoPreset, IncludeOptions, OutputProfile, ResolvedConfig } from '../types/config';
 import type {
@@ -80,6 +81,10 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
     redirects: [],
     skipped: [],
   };
+
+  // track seen dynamic URL patterns
+  // TODO: make configurable via dynamicRoutes: 'skip' | 'once' | 'all'
+  const seenPatterns = new Set<string>();
 
   // get seed URLs
   let seedUrls: string[] = [opts.url];
@@ -209,11 +214,25 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
       if (depth < opts.maxDepth) {
         const internalUrls = links
           .filter((l) => l.isInternal)
-          .filter((l) => !isExcluded(l.url, opts.excludePatterns))
-          .map((l) => l.url);
+          .filter((l) => !isExcluded(l.url, opts.excludePatterns));
+
+        // crawl first occurrence per pattern, skip rest
+        // TODO: make configurable via dynamicRoutes: 'skip' | 'once' | 'all'
+        const urlsToEnqueue: string[] = [];
+        for (const link of internalUrls) {
+          const analysis = isDynamicUrl(link.url);
+          if (analysis.isDynamic && analysis.pattern) {
+            if (seenPatterns.has(analysis.pattern)) {
+              state.skipped.push({ url: link.url, reason: `dynamic:${analysis.pattern}` });
+              continue;
+            }
+            seenPatterns.add(analysis.pattern);
+          }
+          urlsToEnqueue.push(link.url);
+        }
 
         await context.enqueueLinks({
-          urls: internalUrls,
+          urls: urlsToEnqueue,
           userData: { depth: depth + 1 },
         });
       }
