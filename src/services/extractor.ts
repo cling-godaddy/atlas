@@ -12,11 +12,8 @@ export async function extractMetadata(page: Page): Promise<PageMetadata> {
       return el?.getAttribute('content') ?? void 0;
     };
 
-    // using || instead of ?? to fall back on empty strings
-    /* eslint-disable @typescript-eslint/prefer-nullish-coalescing */
     const title = document.title || '';
     const description = getMeta('description') || '';
-    /* eslint-enable @typescript-eslint/prefer-nullish-coalescing */
     const ogTitle = getMeta('og:title');
     const ogDescription = getMeta('og:description');
     const ogImage = getMeta('og:image');
@@ -42,13 +39,11 @@ export async function extractMetadata(page: Page): Promise<PageMetadata> {
 export async function extractLinks(page: Page, baseUrl: URL): Promise<LinkInfo[]> {
   const rawLinks = await page.evaluate(() => {
     const anchors = Array.from(document.querySelectorAll('a[href]'));
-    /* eslint-disable @typescript-eslint/prefer-nullish-coalescing, @typescript-eslint/no-unnecessary-condition */
     return anchors.map((a) => ({
       href: a.getAttribute('href') || '',
       text: a.textContent?.trim() || '',
       rel: a.getAttribute('rel') || void 0,
     }));
-    /* eslint-enable @typescript-eslint/prefer-nullish-coalescing, @typescript-eslint/no-unnecessary-condition */
   });
 
   const links: LinkInfo[] = [];
@@ -233,9 +228,7 @@ export async function extractStructuredData(page: Page): Promise<StructuredData>
         props.forEach((prop) => {
           const name = prop.getAttribute('itemprop');
           if (name) {
-            /* eslint-disable @typescript-eslint/no-unnecessary-condition */
             const content = prop.getAttribute('content') ?? prop.textContent?.trim() ?? '';
-            /* eslint-enable @typescript-eslint/no-unnecessary-condition */
             if (content) {
               item[name] = content;
             }

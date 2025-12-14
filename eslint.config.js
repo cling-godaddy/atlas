@@ -48,6 +48,21 @@ export default tseslint.config(
     },
   },
   {
+    // browser DOM extraction code - TypeScript types don't match browser reality
+    files: ['src/services/extractor.ts'],
+    rules: {
+      '@typescript-eslint/prefer-nullish-coalescing': 'off',
+      '@typescript-eslint/no-unnecessary-condition': 'off',
+    },
+  },
+  {
+    // XML parser returns dynamic structures - TypeScript can't model all edge cases
+    files: ['src/services/sitemap.ts'],
+    rules: {
+      '@typescript-eslint/no-unnecessary-condition': 'off',
+    },
+  },
+  {
     ignores: ['dist/', 'node_modules/', 'coverage/', '*.config.js', '*.config.ts'],
   },
 );

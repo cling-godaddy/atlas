@@ -79,7 +79,6 @@ async function fetchSitemapRecursive(
     }
     // regular sitemap (with or without URLs)
     else if (parsed.urlset) {
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- urlset can exist without url property
       if (parsed.urlset.url) {
         const urls = Array.isArray(parsed.urlset.url) ? parsed.urlset.url : [parsed.urlset.url];
 
