@@ -31,11 +31,11 @@ export interface PageData {
   statusCode: number;
   depth: number;
   title: string;
-  html: string;
-  text: string;
+  html?: string;
+  text?: string;
   metadata: PageMetadata;
   links: LinkInfo[];
-  assets: AssetRef[];
+  assets?: AssetRef[];
   requiresAuth?: boolean;
   authSignals?: AuthSignals;
   isSoft404?: boolean;

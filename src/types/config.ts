@@ -2,6 +2,15 @@ export type CrawlProfile = 'quick' | 'standard' | 'deep' | 'full';
 
 export type GeoPreset = 'us' | 'uk' | 'eu' | 'asia';
 
+export type OutputProfile = 'minimal' | 'standard' | 'full';
+
+export interface IncludeOptions {
+  html?: boolean;
+  text?: boolean;
+  assets?: boolean;
+  structuredData?: boolean;
+}
+
 export interface CrawlProfileConfig {
   maxPages: number;
   maxDepth: number;
