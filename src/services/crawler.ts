@@ -6,6 +6,7 @@ import { extractAssets, extractLinks, extractMetadata, extractStructuredData, ex
 import { getSitemapUrl, parseSitemap } from './sitemap';
 import { geoPresets } from '../config/geo';
 import { resolveIncludeOptions } from '../config/output';
+import { randomDelay, randomUserAgent, randomViewport, sleep } from '../config/stealth';
 import { isDynamicUrl, normalizeUrl } from '../utils/url';
 
 import type { GeoPreset, IncludeOptions, OutputProfile, ResolvedConfig } from '../types/config';
@@ -72,6 +73,10 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
   const geoConfig = geoPresets[opts.geo];
   const includeOpts = resolveIncludeOptions(opts.output, opts.include);
 
+  // stealth config (picked once per session)
+  const viewport = randomViewport();
+  const userAgent = randomUserAgent();
+
   // state accumulation
   const pages: CrawledPage[] = [];
   const assetMap = new Map<string, ManifestAsset>();
@@ -122,12 +127,18 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
           '--no-sandbox',
           '--disable-setuid-sandbox',
           `--lang=${geoConfig.lang}`,
+          `--window-size=${String(viewport.width)},${String(viewport.height)}`,
         ],
       },
     },
 
     preNavigationHooks: [
       async ({ page }) => {
+        // stealth: set viewport and user agent
+        await page.setViewport(viewport);
+        // eslint-disable-next-line @typescript-eslint/no-deprecated
+        await page.setUserAgent(userAgent);
+
         // set Accept-Language header
         await page.setExtraHTTPHeaders({
           'Accept-Language': geoConfig.acceptLanguage,
@@ -159,6 +170,9 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
       const url = request.loadedUrl ?? request.url;
       const depth = (request.userData as { depth?: number } | undefined)?.depth ?? 0;
 
+      // stealth: random delay between requests
+      await sleep(randomDelay());
+
       // track redirects
       if (request.loadedUrl && request.loadedUrl !== request.url) {
         state.redirects.push({
@@ -174,6 +188,14 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
       } catch {
         // timeout is ok, continue with extraction
       }
+
+      // stealth: random scroll to mimic human behavior
+      await page.evaluate(() => {
+        const scrollHeight = document.body.scrollHeight;
+        const scrollTo = Math.random() * Math.min(scrollHeight, 2000);
+        window.scrollTo(0, scrollTo);
+      });
+      await sleep(200 + Math.random() * 300);
 
       // extract page data (conditional based on output profile)
       const [metadata, links] = await Promise.all([

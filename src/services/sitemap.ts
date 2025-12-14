@@ -1,11 +1,13 @@
 import { XMLParser } from 'fast-xml-parser';
 
+import { USER_AGENTS } from '../config/stealth';
+
 import type { SitemapEntry, SitemapOptions, SitemapResult } from '../types';
 
 const DEFAULT_OPTIONS: Required<SitemapOptions> = {
   maxDepth: 3,
   timeout: 10000,
-  userAgent: 'Mozilla/5.0 (compatible; Atlas/2.0; +https://github.com/yourusername/atlas)',
+  userAgent: USER_AGENTS[0] ?? 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
   acceptLanguage: 'en-US,en;q=0.9',
 };
 
