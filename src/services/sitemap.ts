@@ -6,6 +6,7 @@ const DEFAULT_OPTIONS: Required<SitemapOptions> = {
   maxDepth: 3,
   timeout: 10000,
   userAgent: 'Mozilla/5.0 (compatible; Atlas/2.0; +https://github.com/yourusername/atlas)',
+  acceptLanguage: 'en-US,en;q=0.9',
 };
 
 /**
@@ -49,7 +50,10 @@ async function fetchSitemapRecursive(
     }, options.timeout);
 
     const response = await fetch(url, {
-      headers: { 'User-Agent': options.userAgent },
+      headers: {
+        'User-Agent': options.userAgent,
+        'Accept-Language': options.acceptLanguage,
+      },
       signal: controller.signal,
     });
 

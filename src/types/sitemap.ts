@@ -34,4 +34,6 @@ export interface SitemapOptions {
   timeout?: number;
   /** User agent string for requests */
   userAgent?: string;
+  /** Accept-Language header for requests (geo locale) */
+  acceptLanguage?: string;
 }

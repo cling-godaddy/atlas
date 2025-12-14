@@ -65,8 +65,8 @@ async function runTest(config: typeof TEST_SITES[0]): Promise<TestResult> {
     console.log(`   💾 Output: ${outputPath}`);
 
     // show sample page data
-    if (result.pages.length > 0) {
-      const firstPage = result.pages[0];
+    const firstPage = result.pages[0];
+    if (firstPage) {
       console.log(`\n   Sample Page (${firstPage.url}):`);
       console.log(`   - Title: ${firstPage.title}`);
       console.log(`   - Links: ${firstPage.links.length} (${firstPage.links.filter((l) => l.isInternal).length} internal)`);

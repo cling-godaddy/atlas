@@ -212,7 +212,10 @@ describe('parseSitemap', () => {
     expect(global.fetch).toHaveBeenCalledWith(
       'https://example.com/sitemap.xml',
       expect.objectContaining({
-        headers: { 'User-Agent': 'CustomBot/1.0' },
+        headers: {
+          'User-Agent': 'CustomBot/1.0',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
       }),
     );
   });

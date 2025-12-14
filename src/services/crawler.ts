@@ -87,10 +87,14 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
 
   if (opts.useSitemap) {
     const sitemapUrl = getSitemapUrl(opts.url);
-    sitemapResult = await parseSitemap(sitemapUrl).catch(() => null);
+    sitemapResult = await parseSitemap(sitemapUrl, {
+      acceptLanguage: geoConfig.acceptLanguage,
+    }).catch(() => null);
 
     if (sitemapResult && sitemapResult.urls.length > 0) {
-      const filtered = filterUrls(sitemapResult.urls, opts.excludePatterns);
+      // filter to base domain only (prevents geo-redirect sitemap issues)
+      const sameDomain = sitemapResult.urls.filter((u) => isSameDomain(u, baseUrl));
+      const filtered = filterUrls(sameDomain.length > 0 ? sameDomain : [opts.url], opts.excludePatterns);
       seedUrls = filtered.slice(0, opts.maxPages);
     }
   }
@@ -313,6 +317,20 @@ function filterUrls(urls: string[], excludePatterns: string[]): string[] {
  */
 function isExcluded(url: string, patterns: string[]): boolean {
   return patterns.some((pattern) => url.includes(pattern));
+}
+
+/**
+ * Check if URL belongs to the same domain (handles www prefix)
+ */
+function isSameDomain(url: string, baseUrl: URL): boolean {
+  try {
+    const parsed = new URL(url);
+    const baseHost = baseUrl.hostname.replace(/^www\./, '');
+    const urlHost = parsed.hostname.replace(/^www\./, '');
+    return urlHost === baseHost || urlHost.endsWith('.' + baseHost);
+  } catch {
+    return false;
+  }
 }
 
 /**
