@@ -4,8 +4,10 @@ import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 
 import { extractAssets, extractLinks, extractMetadata, extractStructuredData, extractText } from './extractor';
 import { getSitemapUrl, parseSitemap } from './sitemap';
+import { geoPresets } from '../config/geo';
+import { resolveIncludeOptions } from '../config/output';
 
-import type { ResolvedConfig } from '../types/config';
+import type { GeoPreset, IncludeOptions, OutputProfile, ResolvedConfig } from '../types/config';
 import type {
   CrawlResult,
   CrawlState,
@@ -39,9 +41,15 @@ export interface CrawlerOptions {
   headless?: boolean;
   /** URL patterns to exclude */
   excludePatterns?: string[];
+  /** Geo preset for locale spoofing */
+  geo?: GeoPreset;
+  /** Output detail level */
+  output?: OutputProfile;
+  /** Override specific include options */
+  include?: IncludeOptions;
 }
 
-const DEFAULT_OPTIONS: Required<Omit<CrawlerOptions, 'url'>> = {
+const DEFAULT_OPTIONS: Required<Omit<CrawlerOptions, 'url' | 'include'>> & { include?: IncludeOptions } = {
   maxPages: 100,
   maxDepth: 3,
   concurrency: 5,
@@ -49,6 +57,8 @@ const DEFAULT_OPTIONS: Required<Omit<CrawlerOptions, 'url'>> = {
   useSitemap: true,
   headless: true,
   excludePatterns: [],
+  geo: 'us',
+  output: 'standard',
 };
 
 /**
@@ -58,6 +68,8 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
   const opts = { ...DEFAULT_OPTIONS, ...options };
   const baseUrl = new URL(opts.url);
   const startedAt = new Date().toISOString();
+  const geoConfig = geoPresets[opts.geo];
+  const includeOpts = resolveIncludeOptions(opts.output, opts.include);
 
   // state accumulation
   const pages: CrawledPage[] = [];
@@ -100,9 +112,38 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
           '--disable-blink-features=AutomationControlled',
           '--no-sandbox',
           '--disable-setuid-sandbox',
+          `--lang=${geoConfig.lang}`,
         ],
       },
     },
+
+    preNavigationHooks: [
+      async ({ page }) => {
+        // set Accept-Language header
+        await page.setExtraHTTPHeaders({
+          'Accept-Language': geoConfig.acceptLanguage,
+        });
+
+        // set geolocation
+        const context = page.browser().defaultBrowserContext();
+        await context.overridePermissions(baseUrl.origin, ['geolocation']);
+        await page.setGeolocation({
+          latitude: geoConfig.latitude,
+          longitude: geoConfig.longitude,
+        });
+
+        // set common locale cookies to prevent geo-redirect
+        const domain = baseUrl.hostname;
+        await context.setCookie(
+          { name: 'locale', value: geoConfig.lang, domain },
+          { name: 'lang', value: geoConfig.lang, domain },
+          { name: 'language', value: geoConfig.lang, domain },
+          { name: 'country', value: geoConfig.country, domain },
+          { name: 'region', value: geoConfig.country, domain },
+          { name: 'geo', value: geoConfig.country, domain },
+        );
+      },
+    ],
 
     requestHandler: async (context: PuppeteerCrawlingContext) => {
       const { page, request } = context;
@@ -125,17 +166,16 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
         // timeout is ok, continue with extraction
       }
 
-      // extract page data
-      const [metadata, links, assets, text, structuredData] = await Promise.all([
+      // extract page data (conditional based on output profile)
+      const [metadata, links] = await Promise.all([
         extractMetadata(page),
         extractLinks(page, baseUrl),
-        extractAssets(page, baseUrl),
-        extractText(page),
-        extractStructuredData(page),
       ]);
 
-      // get raw HTML
-      const html = await page.content();
+      const assets = includeOpts.assets ? await extractAssets(page, baseUrl) : void 0;
+      const text = includeOpts.text ? await extractText(page) : void 0;
+      const structuredData = includeOpts.structuredData ? await extractStructuredData(page) : void 0;
+      const html = includeOpts.html ? await page.content() : void 0;
 
       // build page data
       const pageData: CrawledPage = {
@@ -145,19 +185,21 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
         statusCode: 200,
         depth,
         title: metadata.title,
-        html,
-        text,
         metadata,
         links,
-        assets,
-        structuredData,
+        ...(html !== void 0 && { html }),
+        ...(text !== void 0 && { text }),
+        ...(assets !== void 0 && { assets }),
+        ...(structuredData !== void 0 && { structuredData }),
       };
 
       pages.push(pageData);
       state.visited.push(url);
 
       // track assets with referencedBy
-      trackAssets(assets, url, assetMap);
+      if (assets) {
+        trackAssets(assets, url, assetMap);
+      }
 
       // enqueue internal links
       if (depth < opts.maxDepth) {
