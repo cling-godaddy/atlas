@@ -2,7 +2,7 @@ import { Configuration, PuppeteerCrawler } from 'crawlee';
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 
-import { extractAssets, extractLinks, extractMetadata, extractText } from './extractor';
+import { extractAssets, extractLinks, extractMetadata, extractStructuredData, extractText } from './extractor';
 import { getSitemapUrl, parseSitemap } from './sitemap';
 
 import type { ResolvedConfig } from '../types/config';
@@ -126,11 +126,12 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
       }
 
       // extract page data
-      const [metadata, links, assets, text] = await Promise.all([
+      const [metadata, links, assets, text, structuredData] = await Promise.all([
         extractMetadata(page),
         extractLinks(page, baseUrl),
         extractAssets(page, baseUrl),
         extractText(page),
+        extractStructuredData(page),
       ]);
 
       // get raw HTML
@@ -149,6 +150,7 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
         metadata,
         links,
         assets,
+        structuredData,
       };
 
       pages.push(pageData);

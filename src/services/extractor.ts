@@ -1,4 +1,5 @@
 import type { AssetRef, AssetType, LinkInfo, PageMetadata } from '../types';
+import type { StructuredData } from '../types/crawl';
 import type { Page } from 'puppeteer';
 
 /**
@@ -192,5 +193,63 @@ export async function extractText(page: Page): Promise<string> {
     // get text and normalize whitespace
     const text = clonedBody.textContent || '';
     return text.replace(/\s+/g, ' ').trim();
+  });
+}
+
+/**
+ * Extract structured data from page (JSON-LD, microdata)
+ */
+export async function extractStructuredData(page: Page): Promise<StructuredData> {
+  return page.evaluate(() => {
+    const jsonLd: unknown[] = [];
+    const microdata: unknown[] = [];
+
+    // extract JSON-LD
+    const jsonLdScripts = document.querySelectorAll('script[type="application/ld+json"]');
+    jsonLdScripts.forEach((script) => {
+      try {
+        const content = script.textContent;
+        if (content) {
+          const parsed = JSON.parse(content) as unknown;
+          jsonLd.push(parsed);
+        }
+      } catch {
+        // invalid JSON, skip
+      }
+    });
+
+    // extract microdata (itemscope elements)
+    const microdataElements = document.querySelectorAll('[itemscope]');
+    microdataElements.forEach((el) => {
+      try {
+        const item: Record<string, unknown> = {};
+        const itemtype = el.getAttribute('itemtype');
+        if (itemtype) {
+          item['@type'] = itemtype;
+        }
+
+        // extract properties
+        const props = el.querySelectorAll('[itemprop]');
+        props.forEach((prop) => {
+          const name = prop.getAttribute('itemprop');
+          if (name) {
+            /* eslint-disable @typescript-eslint/no-unnecessary-condition */
+            const content = prop.getAttribute('content') ?? prop.textContent?.trim() ?? '';
+            /* eslint-enable @typescript-eslint/no-unnecessary-condition */
+            if (content) {
+              item[name] = content;
+            }
+          }
+        });
+
+        if (Object.keys(item).length > 0) {
+          microdata.push(item);
+        }
+      } catch {
+        // invalid microdata, skip
+      }
+    });
+
+    return { jsonLd, microdata };
   });
 }
