@@ -49,6 +49,8 @@ export interface CrawlerOptions {
   output?: OutputProfile;
   /** Override specific include options */
   include?: IncludeOptions;
+  /** Logging verbosity during crawl */
+  logLevel?: 'minimal' | 'standard' | 'verbose';
 }
 
 const DEFAULT_OPTIONS: Required<Omit<CrawlerOptions, 'url' | 'include'>> & { include?: IncludeOptions } = {
@@ -61,6 +63,7 @@ const DEFAULT_OPTIONS: Required<Omit<CrawlerOptions, 'url' | 'include'>> & { inc
   excludePatterns: [],
   geo: 'us',
   output: 'standard',
+  logLevel: 'standard',
 };
 
 /**
@@ -118,6 +121,10 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
     requestHandlerTimeoutSecs: opts.timeout / 1000,
     navigationTimeoutSecs: opts.timeout / 1000,
 
+    statisticsOptions: {
+      logIntervalSecs: opts.logLevel === 'minimal' ? 30 : 15,
+    },
+
     launchContext: {
       launcher: puppeteer,
       launchOptions: {
@@ -166,12 +173,18 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
     ],
 
     requestHandler: async (context: PuppeteerCrawlingContext) => {
-      const { page, request } = context;
+      const { page, request, log } = context;
       const url = request.loadedUrl ?? request.url;
       const depth = (request.userData as { depth?: number } | undefined)?.depth ?? 0;
 
       // stealth: random delay between requests
       await sleep(randomDelay());
+
+      // log page start (standard/verbose only)
+      if (opts.logLevel !== 'minimal') {
+        const progress = `${String(state.visited.length + 1)}/${String(opts.maxPages)}`;
+        log.info(`[${progress}] Crawling: ${url} (depth: ${String(depth)})`);
+      }
 
       // track redirects
       if (request.loadedUrl && request.loadedUrl !== request.url) {
@@ -227,6 +240,20 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
       pages.push(pageData);
       state.visited.push(url);
 
+      // log page completion (standard/verbose only)
+      if (opts.logLevel !== 'minimal') {
+        const internalLinks = links.filter((l) => l.isInternal).length;
+        const externalLinks = links.length - internalLinks;
+        const logParts = [`✓ ${url}`, `links: ${String(internalLinks)} internal, ${String(externalLinks)} external`];
+
+        if (opts.logLevel === 'verbose') {
+          if (assets) logParts.push(`assets: ${String(assets.length)}`);
+          if (text) logParts.push(`text: ${String(text.length)} chars`);
+        }
+
+        log.info(logParts.join(' | '));
+      }
+
       // track assets with referencedBy
       if (assets) {
         trackAssets(assets, url, assetMap);
@@ -241,12 +268,14 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
         // crawl first occurrence per pattern, skip rest
         // TODO: make configurable via dynamicRoutes: 'skip' | 'once' | 'all'
         const urlsToEnqueue: string[] = [];
+        let skippedDynamic = 0;
         for (const link of internalUrls) {
           const normalized = normalizeUrl(link.url);
           const analysis = isDynamicUrl(normalized);
           if (analysis.isDynamic && analysis.pattern) {
             if (seenPatterns.has(analysis.pattern)) {
               state.skipped.push({ url: normalized, reason: `dynamic:${analysis.pattern}` });
+              skippedDynamic++;
               continue;
             }
             seenPatterns.add(analysis.pattern);
@@ -258,15 +287,26 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
           urls: urlsToEnqueue,
           userData: { depth: depth + 1 },
         });
+
+        // log enqueueing results (verbose only)
+        if (opts.logLevel === 'verbose' && urlsToEnqueue.length > 0) {
+          log.info(
+            `Enqueued ${String(urlsToEnqueue.length)} URLs at depth ${String(depth + 1)}` +
+              (skippedDynamic > 0 ? ` (skipped ${String(skippedDynamic)} dynamic duplicates)` : ''),
+          );
+        }
       }
     },
 
-    failedRequestHandler: ({ request }, error) => {
+    failedRequestHandler: ({ request, log }, error) => {
       state.failed.push({
         url: request.url,
         error: error.message,
         attempts: request.retryCount + 1,
       });
+
+      // always log failures regardless of logLevel
+      log.error(`Failed to crawl ${request.url} after ${String(request.retryCount + 1)} attempts: ${error.message}`);
     },
   });
 
@@ -274,6 +314,17 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
 
   const completedAt = new Date().toISOString();
   const duration = new Date(completedAt).getTime() - new Date(startedAt).getTime();
+
+  // log final summary (all log levels)
+  /* eslint-disable no-console */
+  console.log('\n📊 Crawl Summary:');
+  console.log(`   Pages crawled: ${String(pages.length)}`);
+  console.log(`   Failed: ${String(state.failed.length)}`);
+  console.log(`   Redirects: ${String(state.redirects.length)}`);
+  console.log(`   Skipped (dynamic duplicates): ${String(state.skipped.length)}`);
+  console.log(`   Duration: ${(duration / 1000).toFixed(2)}s`);
+  console.log(`   Rate: ${(pages.length / (duration / 1000 / 60)).toFixed(2)} pages/min\n`);
+  /* eslint-enable no-console */
 
   // build URL hierarchy
   const hierarchy = buildUrlHierarchy(pages.map((p) => p.url), baseUrl);
