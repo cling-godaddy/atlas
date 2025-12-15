@@ -1,6 +1,9 @@
 import { writeFile , mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
+import { generateMermaidReport } from './visualize';
+
+import type { VisualizationOptions } from '../types/config';
 import type { CrawlResult } from '../types/crawl';
 
 export interface OutputOptions {
@@ -8,11 +11,14 @@ export interface OutputOptions {
   pretty?: boolean;
   /** Create parent directories if needed (default: true) */
   createDirs?: boolean;
+  /** Generate visualization files (default: false) */
+  visualize?: boolean | VisualizationOptions;
 }
 
-const DEFAULT_OPTIONS: Required<OutputOptions> = {
+const DEFAULT_OPTIONS: Required<Omit<OutputOptions, 'visualize'>> & { visualize: boolean } = {
   pretty: true,
   createDirs: true,
+  visualize: false,
 };
 
 /**
@@ -40,6 +46,14 @@ export async function writeOutput(
   const tempPath = `${outputPath}.tmp`;
   await writeFile(tempPath, json, 'utf-8');
   await writeFile(outputPath, json, 'utf-8');
+
+  // generate visualization if requested
+  if (opts.visualize) {
+    const vizOptions = typeof opts.visualize === 'boolean' ? void 0 : opts.visualize;
+    const vizPath = outputPath.replace(/\.json$/, '.viz.md');
+    const markdown = generateMermaidReport(result, vizOptions);
+    await writeFile(vizPath, markdown, 'utf-8');
+  }
 }
 
 /**

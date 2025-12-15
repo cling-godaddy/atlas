@@ -55,7 +55,7 @@ async function runTest(config: typeof TEST_SITES[0]): Promise<TestResult> {
     const outputPath = generateOutputPath(result.baseUrl);
 
     // save result to file
-    await writeOutput(result, outputPath);
+    await writeOutput(result, outputPath, { visualize: true });
 
     console.log('   ✅ Success!');
     console.log(`   ⏱️  Duration: ${(duration / 1000).toFixed(2)}s`);

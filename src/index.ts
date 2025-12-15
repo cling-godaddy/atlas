@@ -6,6 +6,10 @@ export type { CrawlerOptions } from './services/crawler';
 export { writeOutput, generateOutputPath } from './services/output';
 export type { OutputOptions } from './services/output';
 
+// visualization
+export { generateMermaidReport } from './services/visualize';
+export type { VisualizationOptions } from './types/config';
+
 // config
 export { resolveConfig } from './config/resolver';
 export type { CrawlConfig, ResolvedConfig } from './types/config';

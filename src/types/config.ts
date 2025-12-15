@@ -38,3 +38,11 @@ export interface ResolvedConfig extends Required<Omit<CrawlConfig, 'profile' | '
   geo?: GeoPreset;
   excludePatterns: string[];
 }
+
+export interface VisualizationOptions {
+  format?: 'mermaid' | 'html' | 'both';
+  maxNodes?: number;
+  maxDepth?: number;
+  minReferences?: number;
+  types?: ('hierarchy' | 'state' | 'assets' | 'links')[];
+}
