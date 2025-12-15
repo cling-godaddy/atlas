@@ -140,24 +140,24 @@ describe('generateOutputPath', () => {
   it('should generate path with hostname and timestamp', () => {
     const path = generateOutputPath('https://example.com', '2025-01-01T00-00-00-000Z');
 
-    expect(path).toBe('output/example-com-2025-01-01T00-00-00-000Z.json');
+    expect(path).toBe('output/example.com/2025-01-01T00-00-00-000Z.json');
   });
 
-  it('should replace dots in hostname with dashes', () => {
+  it('should organize files by domain subdirectories', () => {
     const path = generateOutputPath('https://api.example.com', '2025-01-01T00-00-00-000Z');
 
-    expect(path).toBe('output/api-example-com-2025-01-01T00-00-00-000Z.json');
+    expect(path).toBe('output/api.example.com/2025-01-01T00-00-00-000Z.json');
   });
 
   it('should handle URLs with paths', () => {
     const path = generateOutputPath('https://example.com/some/path', '2025-01-01T00-00-00-000Z');
 
-    expect(path).toBe('output/example-com-2025-01-01T00-00-00-000Z.json');
+    expect(path).toBe('output/example.com/2025-01-01T00-00-00-000Z.json');
   });
 
   it('should generate timestamp if not provided', () => {
     const path = generateOutputPath('https://example.com');
 
-    expect(path).toMatch(/^output\/example-com-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z\.json$/);
+    expect(path).toMatch(/^output\/example\.com\/\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z\.json$/);
   });
 });

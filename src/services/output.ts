@@ -61,7 +61,7 @@ export async function writeOutput(
  */
 export function generateOutputPath(baseUrl: string, timestamp?: string): string {
   const url = new URL(baseUrl);
-  const hostname = url.hostname.replace(/\./g, '-');
+  const hostname = url.hostname;
   const ts = timestamp ?? new Date().toISOString().replace(/[:.]/g, '-');
-  return `output/${hostname}-${ts}.json`;
+  return `output/${hostname}/${ts}.json`;
 }
