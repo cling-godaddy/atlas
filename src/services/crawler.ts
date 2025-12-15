@@ -3,6 +3,7 @@ import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 
 import { extractAssets, extractLinks, extractMetadata, extractStructuredData, extractText } from './extractor';
+import { detectPlatform } from './platform-detector';
 import { getSitemapUrl, parseSitemap } from './sitemap';
 import { geoPresets } from '../config/geo';
 import { resolveIncludeOptions } from '../config/output';
@@ -329,6 +330,10 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
   // build URL hierarchy
   const hierarchy = buildUrlHierarchy(pages.map((p) => p.url), baseUrl);
 
+  // detect hosting platform
+  const assets = Array.from(assetMap.values());
+  const platform = detectPlatform(pages, assets);
+
   const result: CrawlResult = {
     baseUrl: baseUrl.origin,
     startedAt,
@@ -336,12 +341,13 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
     duration,
     config: opts as unknown as ResolvedConfig,
     pages,
-    assets: Array.from(assetMap.values()),
+    assets,
     state,
     structure: {
       sitemap: sitemapResult,
       hierarchy,
     },
+    platform,
   };
 
   return result;

@@ -24,6 +24,8 @@ export type {
   URLHierarchyNode,
   SiteStructure,
   RedirectRecord,
+  Platform,
+  PlatformDetection,
 } from './types/crawl';
 
 export type {

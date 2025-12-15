@@ -76,6 +76,35 @@ export interface CrawledPage extends PageData {
 }
 
 /**
+ * Detected hosting/CMS platform
+ */
+export type Platform =
+  | 'shopify'
+  | 'wordpress'
+  | 'wix'
+  | 'squarespace'
+  | 'godaddy'
+  | 'webflow'
+  | 'bigcommerce'
+  | 'woocommerce'
+  | 'magento'
+  | 'unknown';
+
+/**
+ * Platform detection result
+ */
+export interface PlatformDetection {
+  /** Detected platform */
+  platform: Platform;
+  /** Confidence level based on number of signals */
+  confidence: 'high' | 'medium' | 'low';
+  /** Signals that triggered detection */
+  signals: string[];
+  /** Platform-specific ID (e.g., Shopify store ID) */
+  platformId?: string;
+}
+
+/**
  * Crawl IR - the main output of Atlas
  *
  * This is the contract between Atlas and downstream consumers (e.g., Blippi).
@@ -108,4 +137,7 @@ export interface CrawlResult {
 
   /** Site structure - sitemap and URL hierarchy */
   structure: SiteStructure;
+
+  /** Detected hosting platform */
+  platform?: PlatformDetection;
 }

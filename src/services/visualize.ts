@@ -30,6 +30,13 @@ export function generateMermaidReport(result: CrawlResult, options?: Visualizati
   sections.push(`Pages crawled: ${String(result.pages.length)}`);
   sections.push(`Assets found: ${String(result.assets.length)}`);
   sections.push(`Duration: ${(result.duration / 1000).toFixed(2)}s`);
+  if (result.platform) {
+    sections.push(`Platform: ${result.platform.platform} (${result.platform.confidence} confidence)`);
+    sections.push(`Signals: ${result.platform.signals.join(', ')}`);
+    if (result.platform.platformId) {
+      sections.push(`Platform ID: ${result.platform.platformId}`);
+    }
+  }
   sections.push('');
 
   // determine which diagrams to generate based on data size
