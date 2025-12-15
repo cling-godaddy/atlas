@@ -10,7 +10,7 @@ export interface VisualizationOptions {
 
 const DEFAULT_OPTIONS: Required<VisualizationOptions> = {
   format: 'mermaid',
-  maxNodes: 50,
+  maxNodes: 2000,
   maxDepth: 5,
   minReferences: 3,
   types: ['hierarchy', 'state'],
