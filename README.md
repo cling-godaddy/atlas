@@ -44,6 +44,42 @@ console.log(`Crawled ${result.pages.length} pages`);
 console.log(`Found ${result.assets.length} unique assets`);
 ```
 
+## CLI Usage
+
+### Manual Test Crawl
+
+For development and testing, use the manual crawl script:
+
+```bash
+# basic crawl
+npm run test:manual https://example.com
+
+# large crawl with custom limits
+npm run test:manual -- https://books.toscrape.com --max-pages 1000 --max-depth 10
+
+# include HTML and text content
+npm run test:manual -- https://example.com --output full
+```
+
+**Flags:**
+- `--max-pages <number>` - Maximum pages to crawl (default: 100)
+- `--max-depth <number>` - Maximum depth from seed URL (default: 5)
+- `--output <profile>` - Output profile: `minimal`, `standard`, `full` (default: `standard`)
+
+Results are saved to `output/<domain>/<timestamp>.json`
+
+### Visualize Results
+
+Generate Mermaid diagrams from crawl results:
+
+```bash
+# basic visualization
+npm run visualize output/example.com/2025-01-01T00-00-00-000Z.json
+
+# with options
+npm run visualize output/example.com/file.json -- --max-nodes 200 --max-depth 10
+```
+
 ## API Reference
 
 ### `crawl(options: CrawlerOptions): Promise<CrawlResult>`
