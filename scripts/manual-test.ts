@@ -1,47 +1,60 @@
 /* eslint-disable no-console, @typescript-eslint/restrict-template-expressions */
 import { crawl, writeOutput, generateOutputPath } from '../src/index';
 
-// ============================================================================
-// CONFIGURE YOUR TEST URLS HERE
-// ============================================================================
+const args = process.argv.slice(2);
+const urlArg = args.find((arg) => !arg.startsWith('--'));
 
-const TEST_SITES = [
-  // {
-  //   name: 'Example.com',
-  //   url: 'https://example.com',
-  //   maxPages: 5,
-  //   maxDepth: 1,
-  // },
-  {
-    name: 'Starbucks',
-    url: 'https://starbucks.com',
-    maxPages: 10,
-    maxDepth: 2,
-  },
-];
-
-// ============================================================================
-// TEST RUNNER
-// ============================================================================
-
-interface TestResult {
-  name: string;
-  url: string;
-  success: boolean;
-  duration: number;
-  pagesCount?: number;
-  assetsCount?: number;
-  error?: string;
-  outputPath?: string;
+if (!urlArg) {
+  console.error('Usage: npm run test:manual <url> [options]');
+  console.error('');
+  console.error('Options:');
+  console.error('  --max-pages <number>  Maximum pages to crawl (default: 100)');
+  console.error('  --max-depth <number>  Maximum depth to traverse (default: 5)');
+  console.error('');
+  console.error('Example:');
+  console.error('  npm run test:manual https://example.com');
+  console.error('  npm run test:manual https://books.toscrape.com --max-pages 1000 --max-depth 10');
+  process.exit(1);
 }
 
-async function runTest(config: typeof TEST_SITES[0]): Promise<TestResult> {
+const url: string = urlArg;
+
+interface CliOptions {
+  url: string;
+  maxPages: number;
+  maxDepth: number;
+}
+
+function parseCliOptions(urlArg: string): CliOptions {
+  let maxPages = 100;
+  let maxDepth = 5;
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    const next = args[i + 1];
+
+    if (arg === '--max-pages' && next) {
+      maxPages = parseInt(next, 10);
+      i++;
+    } else if (arg === '--max-depth' && next) {
+      maxDepth = parseInt(next, 10);
+      i++;
+    }
+  }
+
+  return { url: urlArg, maxPages, maxDepth };
+}
+
+async function main() {
+  const config = parseCliOptions(url);
   const startTime = Date.now();
 
-  try {
-    console.log(`\n📍 Testing: ${config.name} (${config.url})`);
-    console.log(`   Settings: maxPages=${config.maxPages}, maxDepth=${config.maxDepth}`);
+  console.log('🚀 Atlas Manual Test Runner');
+  console.log('============================\n');
+  console.log(`📍 Testing: ${config.url}`);
+  console.log(`   Settings: maxPages=${config.maxPages}, maxDepth=${config.maxDepth}\n`);
 
+  try {
     const result = await crawl({
       url: config.url,
       maxPages: config.maxPages,
@@ -57,93 +70,38 @@ async function runTest(config: typeof TEST_SITES[0]): Promise<TestResult> {
     // save result to file
     await writeOutput(result, outputPath, { visualize: true });
 
-    console.log('   ✅ Success!');
-    console.log(`   ⏱️  Duration: ${(duration / 1000).toFixed(2)}s`);
-    console.log(`   📄 Pages: ${result.pages.length}`);
-    console.log(`   🖼️  Assets: ${result.assets.length}`);
-    console.log(`   📊 State: ${result.state.visited.length} visited, ${result.state.failed.length} failed`);
-    console.log(`   💾 Output: ${outputPath}`);
+    console.log('✅ Success!');
+    console.log(`⏱️  Duration: ${(duration / 1000).toFixed(2)}s`);
+    console.log(`📄 Pages: ${result.pages.length}`);
+    console.log(`🖼️  Assets: ${result.assets.length}`);
+    console.log(`📊 State: ${result.state.visited.length} visited, ${result.state.failed.length} failed`);
+    console.log(`💾 Output: ${outputPath}\n`);
 
     // show sample page data
     const firstPage = result.pages[0];
     if (firstPage) {
-      console.log(`\n   Sample Page (${firstPage.url}):`);
-      console.log(`   - Title: ${firstPage.title}`);
-      console.log(`   - Links: ${firstPage.links.length} (${firstPage.links.filter((l) => l.isInternal).length} internal)`);
-      if (firstPage.assets) console.log(`   - Assets: ${firstPage.assets.length}`);
-      if (firstPage.text) console.log(`   - Text length: ${firstPage.text.length} chars`);
-      if (firstPage.html) console.log(`   - HTML length: ${firstPage.html.length} chars`);
+      console.log(`Sample Page (${firstPage.url}):`);
+      console.log(`- Title: ${firstPage.title}`);
+      console.log(`- Links: ${firstPage.links.length} (${firstPage.links.filter((l) => l.isInternal).length} internal)`);
+      if (firstPage.assets) console.log(`- Assets: ${firstPage.assets.length}`);
+      if (firstPage.text) console.log(`- Text length: ${firstPage.text.length} chars`);
+      if (firstPage.html) console.log(`- HTML length: ${firstPage.html.length} chars`);
       if (firstPage.structuredData) {
-        console.log(`   - Structured data: ${firstPage.structuredData.jsonLd.length} JSON-LD, ${firstPage.structuredData.microdata.length} microdata`);
+        console.log(`- Structured data: ${firstPage.structuredData.jsonLd.length} JSON-LD, ${firstPage.structuredData.microdata.length} microdata`);
       }
     }
 
-    return {
-      name: config.name,
-      url: config.url,
-      success: true,
-      duration,
-      pagesCount: result.pages.length,
-      assetsCount: result.assets.length,
-      outputPath,
-    };
+    console.log('\n✨ Done!\n');
+    process.exit(0);
   } catch (error) {
     const duration = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : String(error);
 
-    console.log(`   ❌ Failed: ${errorMessage}`);
+    console.log(`❌ Failed: ${errorMessage}`);
+    console.log(`⏱️  Duration: ${(duration / 1000).toFixed(2)}s\n`);
 
-    return {
-      name: config.name,
-      url: config.url,
-      success: false,
-      duration,
-      error: errorMessage,
-    };
+    process.exit(1);
   }
-}
-
-async function main() {
-  console.log('🚀 Atlas Manual Test Runner');
-  console.log('============================\n');
-  console.log(`Testing ${TEST_SITES.length} site(s)...\n`);
-
-  const results: TestResult[] = [];
-
-  for (const site of TEST_SITES) {
-    const result = await runTest(site);
-    results.push(result);
-  }
-
-  // summary
-  console.log('\n\n📊 SUMMARY');
-  console.log('==========\n');
-
-  const successful = results.filter((r) => r.success);
-  const failed = results.filter((r) => !r.success);
-
-  console.log(`Total: ${results.length} tests`);
-  console.log(`✅ Passed: ${successful.length}`);
-  console.log(`❌ Failed: ${failed.length}`);
-
-  if (successful.length > 0) {
-    console.log('\nSuccessful tests:');
-    successful.forEach((r) => {
-      console.log(`  • ${r.name}: ${r.pagesCount} pages, ${r.assetsCount} assets (${(r.duration / 1000).toFixed(2)}s)`);
-      console.log(`    Output: ${r.outputPath}`);
-    });
-  }
-
-  if (failed.length > 0) {
-    console.log('\nFailed tests:');
-    failed.forEach((r) => {
-      console.log(`  • ${r.name}: ${r.error}`);
-    });
-  }
-
-  console.log('\n✨ Done!\n');
-
-  process.exit(failed.length > 0 ? 1 : 0);
 }
 
 main().catch((error: unknown) => {
