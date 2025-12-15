@@ -110,6 +110,29 @@ export function shouldExcludeHierarchically(url: string, patterns: string[]): bo
   }
 }
 
+export function extractParentPaths(patterns: string[]): string[] {
+  const parents: string[] = [];
+
+  for (const pattern of patterns) {
+    if (!pattern.includes('*')) continue;
+
+    // extract parent path (remove /*)
+    let parentPath = pattern.replace(/\/?\*+$/, '');
+
+    // ensure leading slash
+    if (!parentPath.startsWith('/')) {
+      parentPath = '/' + parentPath;
+    }
+
+    // skip root pattern
+    if (parentPath === '/') continue;
+
+    parents.push(parentPath);
+  }
+
+  return parents;
+}
+
 export function normalizeUrl(url: string): string {
   try {
     const parsed = new URL(url);

@@ -8,7 +8,7 @@ import { getSitemapUrl, parseSitemap } from './sitemap';
 import { geoPresets } from '../config/geo';
 import { resolveIncludeOptions } from '../config/output';
 import { randomDelay, randomUserAgent, randomViewport, sleep } from '../config/stealth';
-import { isDynamicUrl, normalizeUrl, shouldExcludeHierarchically, shouldExcludeUrl } from '../utils/url';
+import { extractParentPaths, isDynamicUrl, normalizeUrl, shouldExcludeHierarchically, shouldExcludeUrl } from '../utils/url';
 
 import type { GeoPreset, IncludeOptions, OutputProfile, ResolvedConfig } from '../types/config';
 import type {
@@ -117,6 +117,19 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
         opts.hierarchicalExclude
       );
       seedUrls = filtered.slice(0, opts.maxPages);
+    }
+  }
+
+  // auto-include parent paths from hierarchical exclude patterns
+  if (opts.hierarchicalExclude.length > 0) {
+    const parentPaths = extractParentPaths(opts.hierarchicalExclude);
+    const parentUrls = parentPaths.map((path) => new URL(path, baseUrl).toString());
+
+    for (const parentUrl of parentUrls) {
+      const normalized = normalizeUrl(parentUrl);
+      if (!seedUrls.some((u) => normalizeUrl(u) === normalized)) {
+        seedUrls.push(parentUrl);
+      }
     }
   }
 

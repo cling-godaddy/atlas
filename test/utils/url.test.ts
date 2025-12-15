@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { extractUrlPattern, isDynamicUrl, isInternalUrl, normalizeUrl, shouldExcludeHierarchically, shouldExcludeUrl, urlToPath } from '../../src/utils/url';
+import { extractParentPaths, extractUrlPattern, isDynamicUrl, isInternalUrl, normalizeUrl, shouldExcludeHierarchically, shouldExcludeUrl, urlToPath } from '../../src/utils/url';
 
 describe('urlToPath', () => {
   it('should convert basic path to filename', () => {
@@ -312,5 +312,39 @@ describe('shouldExcludeHierarchically', () => {
       expect(shouldExcludeHierarchically('https://site.com/docs/guide', patterns)).toBe(true);
       expect(shouldExcludeHierarchically('https://site.com/docs/api/reference', patterns)).toBe(true);
     });
+  });
+});
+
+describe('extractParentPaths', () => {
+  it('should extract parent path from wildcard pattern', () => {
+    expect(extractParentPaths(['/products/*'])).toEqual(['/products']);
+  });
+
+  it('should handle multiple patterns', () => {
+    expect(extractParentPaths(['/products/*', '/blog/*'])).toEqual(['/products', '/blog']);
+  });
+
+  it('should ignore patterns without wildcards', () => {
+    expect(extractParentPaths(['/about'])).toEqual([]);
+  });
+
+  it('should skip root pattern', () => {
+    expect(extractParentPaths(['/*'])).toEqual([]);
+  });
+
+  it('should handle patterns without leading slash', () => {
+    expect(extractParentPaths(['products/*'])).toEqual(['/products']);
+  });
+
+  it('should handle nested paths', () => {
+    expect(extractParentPaths(['/shop/ols/products/*'])).toEqual(['/shop/ols/products']);
+  });
+
+  it('should handle empty array', () => {
+    expect(extractParentPaths([])).toEqual([]);
+  });
+
+  it('should handle pattern with multiple wildcards', () => {
+    expect(extractParentPaths(['/products/**'])).toEqual(['/products']);
   });
 });
