@@ -47,6 +47,7 @@
     "vitest": "^2.1.8"
   },
   "dependencies": {
+    "cac": "6.7.14",
     "cheerio": "1.1.2",
     "crawlee": "3.15.3",
     "fast-xml-parser": "5.3.3",
