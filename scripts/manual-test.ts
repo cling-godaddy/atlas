@@ -1,6 +1,8 @@
 /* eslint-disable no-console, @typescript-eslint/restrict-template-expressions */
 import { crawl, writeOutput, generateOutputPath } from '../src/index';
 
+import type { OutputProfile } from '../src/types/config';
+
 const args = process.argv.slice(2);
 const urlArg = args.find((arg) => !arg.startsWith('--'));
 
@@ -10,10 +12,12 @@ if (!urlArg) {
   console.error('Options:');
   console.error('  --max-pages <number>  Maximum pages to crawl (default: 100)');
   console.error('  --max-depth <number>  Maximum depth to traverse (default: 5)');
+  console.error('  --output <profile>    Output profile: minimal, standard, full (default: standard)');
   console.error('');
   console.error('Example:');
   console.error('  npm run test:manual https://example.com');
   console.error('  npm run test:manual https://books.toscrape.com --max-pages 1000 --max-depth 10');
+  console.error('  npm run test:manual https://example.com --output full');
   process.exit(1);
 }
 
@@ -23,11 +27,13 @@ interface CliOptions {
   url: string;
   maxPages: number;
   maxDepth: number;
+  output: OutputProfile;
 }
 
 function parseCliOptions(urlArg: string): CliOptions {
   let maxPages = 100;
   let maxDepth = 5;
+  let output: OutputProfile = 'standard';
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -39,10 +45,15 @@ function parseCliOptions(urlArg: string): CliOptions {
     } else if (arg === '--max-depth' && next) {
       maxDepth = parseInt(next, 10);
       i++;
+    } else if (arg === '--output' && next) {
+      if (next === 'minimal' || next === 'standard' || next === 'full') {
+        output = next;
+      }
+      i++;
     }
   }
 
-  return { url: urlArg, maxPages, maxDepth };
+  return { url: urlArg, maxPages, maxDepth, output };
 }
 
 async function main() {
@@ -52,13 +63,14 @@ async function main() {
   console.log('🚀 Atlas Manual Test Runner');
   console.log('============================\n');
   console.log(`📍 Testing: ${config.url}`);
-  console.log(`   Settings: maxPages=${config.maxPages}, maxDepth=${config.maxDepth}\n`);
+  console.log(`   Settings: maxPages=${config.maxPages}, maxDepth=${config.maxDepth}, output=${config.output}\n`);
 
   try {
     const result = await crawl({
       url: config.url,
       maxPages: config.maxPages,
       maxDepth: config.maxDepth,
+      output: config.output,
       useSitemap: true,
       headless: true,
       timeout: 30000,
