@@ -59,6 +59,57 @@ export function shouldExcludeUrl(url: string, patterns: string[]): boolean {
   }
 }
 
+export function shouldExcludeHierarchically(url: string, patterns: string[]): boolean {
+  try {
+    const parsed = new URL(url);
+    let pathname = parsed.pathname.toLowerCase();
+
+    // normalize trailing slash
+    if (pathname.endsWith('/') && pathname !== '/') {
+      pathname = pathname.slice(0, -1);
+    }
+
+    for (const pattern of patterns) {
+      const patternLower = pattern.toLowerCase();
+
+      if (!patternLower.includes('*')) {
+        // no wildcard → exact match only (not hierarchical)
+        if (pathname === patternLower || pathname === patternLower + '/') {
+          return true;
+        }
+        continue;
+      }
+
+      // extract parent path (remove /*)
+      let parentPath = patternLower.replace(/\/?\*+$/, '');
+
+      // ensure parent path has leading slash
+      if (!parentPath.startsWith('/')) {
+        parentPath = '/' + parentPath;
+      }
+
+      // check if URL is the parent (KEEP)
+      if (pathname === parentPath || pathname === parentPath + '/') {
+        return false;
+      }
+
+      // check if URL is a child (EXCLUDE)
+      if (parentPath === '/') {
+        // for root pattern /*, exclude all non-root paths
+        if (pathname !== '/') {
+          return true;
+        }
+      } else if (pathname.startsWith(parentPath + '/')) {
+        return true;
+      }
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 export function normalizeUrl(url: string): string {
   try {
     const parsed = new URL(url);

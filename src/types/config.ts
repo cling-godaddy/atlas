@@ -32,11 +32,13 @@ export interface CrawlConfig {
   output?: string;
   sitemapOnly?: boolean;
   excludePatterns?: string[];
+  hierarchicalExclude?: string[];
 }
 
-export interface ResolvedConfig extends Required<Omit<CrawlConfig, 'profile' | 'geo' | 'excludePatterns'>> {
+export interface ResolvedConfig extends Required<Omit<CrawlConfig, 'profile' | 'geo' | 'excludePatterns' | 'hierarchicalExclude'>> {
   geo?: GeoPreset;
   excludePatterns: string[];
+  hierarchicalExclude: string[];
 }
 
 export interface VisualizationOptions {

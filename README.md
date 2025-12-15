@@ -59,12 +59,17 @@ npm run test:manual -- https://books.toscrape.com --max-pages 1000 --max-depth 1
 
 # include HTML and text content
 npm run test:manual -- https://example.com --output full
+
+# exclude child pages from product listings
+npm run test:manual -- https://shop.com --hierarchical-exclude /products/*
 ```
 
 **Flags:**
 - `--max-pages <number>` - Maximum pages to crawl (default: 100)
 - `--max-depth <number>` - Maximum depth from seed URL (default: 5)
 - `--output <profile>` - Output profile: `minimal`, `standard`, `full` (default: `standard`)
+- `--exclude <pattern>` - Exclude URLs matching pattern (can be used multiple times)
+- `--hierarchical-exclude <pattern>` - Exclude child pages but keep parent (can be used multiple times)
 
 Results are saved to `output/<domain>/<timestamp>.json`
 

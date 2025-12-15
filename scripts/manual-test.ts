@@ -10,14 +10,17 @@ if (!urlArg) {
   console.error('Usage: npm run test:manual <url> [options]');
   console.error('');
   console.error('Options:');
-  console.error('  --max-pages <number>  Maximum pages to crawl (default: 100)');
-  console.error('  --max-depth <number>  Maximum depth to traverse (default: 5)');
-  console.error('  --output <profile>    Output profile: minimal, standard, full (default: standard)');
+  console.error('  --max-pages <number>            Maximum pages to crawl (default: 100)');
+  console.error('  --max-depth <number>            Maximum depth to traverse (default: 5)');
+  console.error('  --output <profile>              Output profile: minimal, standard, full (default: standard)');
+  console.error('  --exclude <pattern>             Exclude pattern (can be used multiple times)');
+  console.error('  --hierarchical-exclude <pattern> Hierarchical exclude pattern (can be used multiple times)');
   console.error('');
   console.error('Example:');
   console.error('  npm run test:manual https://example.com');
   console.error('  npm run test:manual https://books.toscrape.com --max-pages 1000 --max-depth 10');
   console.error('  npm run test:manual https://example.com --output full');
+  console.error('  npm run test:manual https://shop.com --hierarchical-exclude /products/*');
   process.exit(1);
 }
 
@@ -28,12 +31,16 @@ interface CliOptions {
   maxPages: number;
   maxDepth: number;
   output: OutputProfile;
+  excludePatterns: string[];
+  hierarchicalExclude: string[];
 }
 
 function parseCliOptions(urlArg: string): CliOptions {
   let maxPages = 100;
   let maxDepth = 5;
   let output: OutputProfile = 'standard';
+  const excludePatterns: string[] = [];
+  const hierarchicalExclude: string[] = [];
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -50,10 +57,16 @@ function parseCliOptions(urlArg: string): CliOptions {
         output = next;
       }
       i++;
+    } else if (arg === '--exclude' && next) {
+      excludePatterns.push(next);
+      i++;
+    } else if (arg === '--hierarchical-exclude' && next) {
+      hierarchicalExclude.push(next);
+      i++;
     }
   }
 
-  return { url: urlArg, maxPages, maxDepth, output };
+  return { url: urlArg, maxPages, maxDepth, output, excludePatterns, hierarchicalExclude };
 }
 
 async function main() {
@@ -63,7 +76,14 @@ async function main() {
   console.log('🚀 Atlas Manual Test Runner');
   console.log('============================\n');
   console.log(`📍 Testing: ${config.url}`);
-  console.log(`   Settings: maxPages=${config.maxPages}, maxDepth=${config.maxDepth}, output=${config.output}\n`);
+  console.log(`   Settings: maxPages=${config.maxPages}, maxDepth=${config.maxDepth}, output=${config.output}`);
+  if (config.excludePatterns.length > 0) {
+    console.log(`   Exclude patterns: ${config.excludePatterns.join(', ')}`);
+  }
+  if (config.hierarchicalExclude.length > 0) {
+    console.log(`   Hierarchical exclude: ${config.hierarchicalExclude.join(', ')}`);
+  }
+  console.log('');
 
   try {
     const result = await crawl({
@@ -71,6 +91,8 @@ async function main() {
       maxPages: config.maxPages,
       maxDepth: config.maxDepth,
       output: config.output,
+      excludePatterns: config.excludePatterns,
+      hierarchicalExclude: config.hierarchicalExclude,
       useSitemap: true,
       headless: true,
       timeout: 30000,

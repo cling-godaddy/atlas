@@ -31,6 +31,7 @@ export const crawlConfigSchema = z.object({
   output: z.string().min(1).optional(),
   sitemapOnly: z.boolean().optional(),
   excludePatterns: z.array(z.string()).optional(),
+  hierarchicalExclude: z.array(z.string()).optional(),
 });
 
 export const resolvedConfigSchema = z.object({
@@ -45,4 +46,5 @@ export const resolvedConfigSchema = z.object({
   output: z.string().min(1),
   sitemapOnly: z.boolean(),
   excludePatterns: z.array(z.string()),
+  hierarchicalExclude: z.array(z.string()),
 });

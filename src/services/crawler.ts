@@ -8,7 +8,7 @@ import { getSitemapUrl, parseSitemap } from './sitemap';
 import { geoPresets } from '../config/geo';
 import { resolveIncludeOptions } from '../config/output';
 import { randomDelay, randomUserAgent, randomViewport, sleep } from '../config/stealth';
-import { isDynamicUrl, normalizeUrl } from '../utils/url';
+import { isDynamicUrl, normalizeUrl, shouldExcludeHierarchically, shouldExcludeUrl } from '../utils/url';
 
 import type { GeoPreset, IncludeOptions, OutputProfile, ResolvedConfig } from '../types/config';
 import type {
@@ -44,6 +44,8 @@ export interface CrawlerOptions {
   headless?: boolean;
   /** URL patterns to exclude */
   excludePatterns?: string[];
+  /** URL patterns to exclude hierarchically (children only, keep parent) */
+  hierarchicalExclude?: string[];
   /** Geo preset for locale spoofing */
   geo?: GeoPreset;
   /** Output detail level */
@@ -62,6 +64,7 @@ const DEFAULT_OPTIONS: Required<Omit<CrawlerOptions, 'url' | 'include'>> & { inc
   useSitemap: true,
   headless: true,
   excludePatterns: [],
+  hierarchicalExclude: [],
   geo: 'us',
   output: 'standard',
   logLevel: 'standard',
@@ -108,7 +111,11 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
     if (sitemapResult && sitemapResult.urls.length > 0) {
       // filter to base domain only (prevents geo-redirect sitemap issues)
       const sameDomain = sitemapResult.urls.filter((u) => isSameDomain(u, baseUrl));
-      const filtered = filterUrls(sameDomain.length > 0 ? sameDomain : [opts.url], opts.excludePatterns);
+      const filtered = filterUrls(
+        sameDomain.length > 0 ? sameDomain : [opts.url],
+        opts.excludePatterns,
+        opts.hierarchicalExclude
+      );
       seedUrls = filtered.slice(0, opts.maxPages);
     }
   }
@@ -264,7 +271,8 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
       if (depth < opts.maxDepth) {
         const internalUrls = links
           .filter((l) => l.isInternal)
-          .filter((l) => !isExcluded(l.url, opts.excludePatterns));
+          .filter((l) => !isExcluded(l.url, opts.excludePatterns))
+          .filter((l) => !shouldExcludeHierarchically(l.url, opts.hierarchicalExclude));
 
         // crawl first occurrence per pattern, skip rest
         // TODO: make configurable via dynamicRoutes: 'skip' | 'once' | 'all'
@@ -407,15 +415,17 @@ function trackAssets(
 /**
  * Filter URLs by exclude patterns
  */
-function filterUrls(urls: string[], excludePatterns: string[]): string[] {
-  return urls.filter((url) => !isExcluded(url, excludePatterns));
+function filterUrls(urls: string[], excludePatterns: string[], hierarchicalExclude: string[]): string[] {
+  return urls
+    .filter((url) => !isExcluded(url, excludePatterns))
+    .filter((url) => !shouldExcludeHierarchically(url, hierarchicalExclude));
 }
 
 /**
  * Check if URL matches any exclude pattern
  */
 function isExcluded(url: string, patterns: string[]): boolean {
-  return patterns.some((pattern) => url.includes(pattern));
+  return shouldExcludeUrl(url, patterns);
 }
 
 /**

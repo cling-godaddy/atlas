@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { extractUrlPattern, isDynamicUrl, isInternalUrl, normalizeUrl, shouldExcludeUrl, urlToPath } from '../../src/utils/url';
+import { extractUrlPattern, isDynamicUrl, isInternalUrl, normalizeUrl, shouldExcludeHierarchically, shouldExcludeUrl, urlToPath } from '../../src/utils/url';
 
 describe('urlToPath', () => {
   it('should convert basic path to filename', () => {
@@ -197,5 +197,120 @@ describe('extractUrlPattern', () => {
 
   it('should handle invalid URLs', () => {
     expect(extractUrlPattern('not-a-url')).toBe('not-a-url');
+  });
+});
+
+describe('shouldExcludeHierarchically', () => {
+  describe('parent page preservation', () => {
+    it('should keep parent page without trailing slash', () => {
+      expect(shouldExcludeHierarchically('https://example.com/products', ['/products/*'])).toBe(false);
+    });
+
+    it('should keep parent page with trailing slash', () => {
+      expect(shouldExcludeHierarchically('https://example.com/products/', ['/products/*'])).toBe(false);
+    });
+
+    it('should keep parent with query params', () => {
+      expect(shouldExcludeHierarchically('https://example.com/products?page=1', ['/products/*'])).toBe(false);
+    });
+  });
+
+  describe('child page exclusion', () => {
+    it('should exclude direct children', () => {
+      expect(shouldExcludeHierarchically('https://example.com/products/item-1', ['/products/*'])).toBe(true);
+    });
+
+    it('should exclude grandchildren', () => {
+      expect(shouldExcludeHierarchically('https://example.com/products/shoes/nike', ['/products/*'])).toBe(true);
+    });
+
+    it('should exclude deeply nested paths', () => {
+      expect(shouldExcludeHierarchically('https://example.com/products/a/b/c/d', ['/products/*'])).toBe(true);
+    });
+
+    it('should exclude children with query params', () => {
+      expect(shouldExcludeHierarchically('https://example.com/products/item-1?id=123', ['/products/*'])).toBe(true);
+    });
+  });
+
+  describe('multiple patterns', () => {
+    it('should handle multiple patterns', () => {
+      const patterns = ['/products/*', '/blog/*', '/categories/*'];
+      expect(shouldExcludeHierarchically('https://example.com/blog/post-1', patterns)).toBe(true);
+      expect(shouldExcludeHierarchically('https://example.com/blog', patterns)).toBe(false);
+      expect(shouldExcludeHierarchically('https://example.com/categories/electronics', patterns)).toBe(true);
+      expect(shouldExcludeHierarchically('https://example.com/categories', patterns)).toBe(false);
+    });
+  });
+
+  describe('patterns without wildcards', () => {
+    it('should match exact path without wildcard', () => {
+      expect(shouldExcludeHierarchically('https://example.com/about', ['/about'])).toBe(true);
+    });
+
+    it('should not match children when no wildcard', () => {
+      expect(shouldExcludeHierarchically('https://example.com/about/team', ['/about'])).toBe(false);
+    });
+  });
+
+  describe('case sensitivity', () => {
+    it('should be case-insensitive for URLs', () => {
+      expect(shouldExcludeHierarchically('https://example.com/Products/Item', ['/products/*'])).toBe(true);
+    });
+
+    it('should be case-insensitive for parent', () => {
+      expect(shouldExcludeHierarchically('https://example.com/PRODUCTS/', ['/products/*'])).toBe(false);
+    });
+  });
+
+  describe('edge cases', () => {
+    it('should handle empty patterns', () => {
+      expect(shouldExcludeHierarchically('https://example.com/anything', [])).toBe(false);
+    });
+
+    it('should handle root path pattern', () => {
+      expect(shouldExcludeHierarchically('https://example.com/', ['/*'])).toBe(false);
+      expect(shouldExcludeHierarchically('https://example.com/page', ['/*'])).toBe(true);
+    });
+
+    it('should handle pattern without leading slash', () => {
+      expect(shouldExcludeHierarchically('https://example.com/products/item', ['products/*'])).toBe(true);
+    });
+
+    it('should not exclude unrelated paths', () => {
+      expect(shouldExcludeHierarchically('https://example.com/about', ['/products/*'])).toBe(false);
+      expect(shouldExcludeHierarchically('https://example.com/product-info', ['/products/*'])).toBe(false);
+    });
+
+    it('should handle invalid URLs gracefully', () => {
+      expect(shouldExcludeHierarchically('not-a-url', ['/products/*'])).toBe(false);
+    });
+
+    it('should handle pattern with multiple wildcards', () => {
+      expect(shouldExcludeHierarchically('https://example.com/products/item', ['/products/**'])).toBe(true);
+    });
+  });
+
+  describe('real-world scenarios', () => {
+    it('should handle commerce product pages', () => {
+      const patterns = ['/products/*'];
+      expect(shouldExcludeHierarchically('https://shop.com/products', patterns)).toBe(false);
+      expect(shouldExcludeHierarchically('https://shop.com/products/tshirt-123', patterns)).toBe(true);
+      expect(shouldExcludeHierarchically('https://shop.com/products/category/shoes', patterns)).toBe(true);
+    });
+
+    it('should handle blog posts', () => {
+      const patterns = ['/blog/*'];
+      expect(shouldExcludeHierarchically('https://site.com/blog', patterns)).toBe(false);
+      expect(shouldExcludeHierarchically('https://site.com/blog/2024/01/post-slug', patterns)).toBe(true);
+    });
+
+    it('should handle documentation pages', () => {
+      const patterns = ['/docs/*'];
+      expect(shouldExcludeHierarchically('https://site.com/docs', patterns)).toBe(false);
+      expect(shouldExcludeHierarchically('https://site.com/docs/', patterns)).toBe(false);
+      expect(shouldExcludeHierarchically('https://site.com/docs/guide', patterns)).toBe(true);
+      expect(shouldExcludeHierarchically('https://site.com/docs/api/reference', patterns)).toBe(true);
+    });
   });
 });

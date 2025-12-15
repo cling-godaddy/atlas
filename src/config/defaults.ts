@@ -10,4 +10,5 @@ export const defaults: Omit<ResolvedConfig, 'url'> = {
   maxDepth: 5,
   concurrency: 10,
   excludePatterns: [],
+  hierarchicalExclude: [],
 };
