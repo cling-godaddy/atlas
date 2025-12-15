@@ -42,9 +42,7 @@ export async function writeOutput(
     ? JSON.stringify(result, null, 2)
     : JSON.stringify(result);
 
-  // write to file (atomic via temp file)
-  const tempPath = `${outputPath}.tmp`;
-  await writeFile(tempPath, json, 'utf-8');
+  // write to file
   await writeFile(outputPath, json, 'utf-8');
 
   // generate visualization if requested
