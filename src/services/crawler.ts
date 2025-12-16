@@ -5,6 +5,7 @@ import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import { extractAssets, extractLinks, extractMetadata, extractStructuredData, extractText } from './extractor';
 import { detectPlatform } from './platform-detector';
 import { getSitemapUrl, parseSitemap } from './sitemap';
+import { classifyPage, extractNavigation } from './ssm';
 import { geoPresets } from '../config/geo';
 import { resolveIncludeOptions } from '../config/output';
 import { randomDelay, randomUserAgent, randomViewport, sleep } from '../config/stealth';
@@ -20,6 +21,7 @@ import type {
 } from '../types/crawl';
 import type { AssetRef } from '../types/page';
 import type { SitemapResult } from '../types/sitemap';
+import type { Navigation } from '../types/ssm';
 import type { PuppeteerCrawlingContext } from 'crawlee';
 
 puppeteer.use(StealthPlugin());
@@ -97,6 +99,9 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
   // track seen dynamic URL patterns
   // TODO: make configurable via dynamicRoutes: 'skip' | 'once' | 'all'
   const seenPatterns = new Set<string>();
+
+  // SSM: track site navigation (extracted from home page)
+  let siteNavigation: Navigation | undefined;
 
   // get seed URLs
   let seedUrls: string[] = [opts.url];
@@ -242,6 +247,9 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
       const structuredData = includeOpts.structuredData ? await extractStructuredData(page) : void 0;
       const html = includeOpts.html ? await page.content() : void 0;
 
+      // SSM: classify page type
+      const classification = classifyPage(url, metadata, structuredData);
+
       // build page data
       const pageData: CrawledPage = {
         url,
@@ -252,6 +260,7 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
         title: metadata.title,
         metadata,
         links,
+        classification,
         ...(html !== void 0 && { html }),
         ...(text !== void 0 && { text }),
         ...(assets !== void 0 && { assets }),
@@ -260,6 +269,11 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
 
       pages.push(pageData);
       state.visited.push(url);
+
+      // SSM: extract navigation from home page
+      if (depth === 0 && !siteNavigation) {
+        siteNavigation = await extractNavigation(page, baseUrl);
+      }
 
       // log page completion (standard/verbose only)
       if (opts.logLevel !== 'minimal') {
@@ -369,6 +383,7 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
       hierarchy,
     },
     platform,
+    navigation: siteNavigation,
   };
 
   return result;

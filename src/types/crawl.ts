@@ -1,6 +1,7 @@
 import type { ResolvedConfig } from './config';
 import type { PageData } from './page';
 import type { SitemapResult } from './sitemap';
+import type { Navigation } from './ssm';
 
 /**
  * Structured data extracted from page (JSON-LD, RDFa, microdata)
@@ -140,4 +141,7 @@ export interface CrawlResult {
 
   /** Detected hosting platform */
   platform?: PlatformDetection;
+
+  /** Site navigation structure */
+  navigation?: Navigation;
 }

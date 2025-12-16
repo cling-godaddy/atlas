@@ -1,4 +1,5 @@
 import type { AuthSignals, RedirectChain, Soft404Signals, UrlAnalysis } from './detection';
+import type { PageClassification } from './ssm';
 
 export type AssetType = 'css' | 'image' | 'font' | 'script' | 'other';
 
@@ -44,4 +45,5 @@ export interface PageData {
   canonicalMismatch?: boolean;
   redirectChain?: RedirectChain;
   contentHash?: string;
+  classification?: PageClassification;
 }

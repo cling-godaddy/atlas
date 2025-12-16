@@ -4,3 +4,4 @@ export * from './config';
 export * from './manifest';
 export * from './sitemap';
 export * from './crawl';
+export * from './ssm';
