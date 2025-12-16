@@ -50,3 +50,59 @@ export interface Navigation {
   primary?: NavItem[];
   footer?: NavItem[];
 }
+
+/**
+ * Phone number with optional type
+ */
+export interface PhoneInfo {
+  number: string;
+  type?: string;
+}
+
+/**
+ * Email address with optional type
+ */
+export interface EmailInfo {
+  address: string;
+  type?: string;
+}
+
+/**
+ * Physical address
+ */
+export interface AddressInfo {
+  formatted: string;
+  street?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  country?: string;
+}
+
+/**
+ * Business hours for a day
+ */
+export interface HoursInfo {
+  day: string;
+  open: string;
+  close: string;
+}
+
+/**
+ * Social media link
+ */
+export interface SocialLink {
+  platform: string;
+  url: string;
+}
+
+/**
+ * Aggregated contact information for a site
+ */
+export interface ContactInfo {
+  phones?: PhoneInfo[];
+  emails?: EmailInfo[];
+  addresses?: AddressInfo[];
+  hours?: HoursInfo[];
+  social?: SocialLink[];
+}

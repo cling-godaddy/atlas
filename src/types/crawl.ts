@@ -1,7 +1,7 @@
 import type { ResolvedConfig } from './config';
 import type { PageData } from './page';
 import type { SitemapResult } from './sitemap';
-import type { Navigation } from './ssm';
+import type { ContactInfo, Navigation } from './ssm';
 
 /**
  * Structured data extracted from page (JSON-LD, RDFa, microdata)
@@ -144,4 +144,7 @@ export interface CrawlResult {
 
   /** Site navigation structure */
   navigation?: Navigation;
+
+  /** Aggregated contact information */
+  contact?: ContactInfo;
 }

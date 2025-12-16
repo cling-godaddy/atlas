@@ -5,12 +5,13 @@ import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import { extractAssets, extractLinks, extractMetadata, extractStructuredData, extractText } from './extractor';
 import { detectPlatform } from './platform-detector';
 import { getSitemapUrl, parseSitemap } from './sitemap';
-import { classifyPage, extractNavigation } from './ssm';
+import { aggregateContactInfo, classifyPage, extractContactFromJsonLd, extractContactFromPage, extractNavigation } from './ssm';
 import { geoPresets } from '../config/geo';
 import { resolveIncludeOptions } from '../config/output';
 import { randomDelay, randomUserAgent, randomViewport, sleep } from '../config/stealth';
 import { extractParentPaths, isDynamicUrl, normalizeUrl, shouldExcludeHierarchically, shouldExcludeUrl } from '../utils/url';
 
+import type { RawContactData } from './ssm';
 import type { GeoPreset, IncludeOptions, OutputProfile, ResolvedConfig } from '../types/config';
 import type {
   CrawlResult,
@@ -21,7 +22,7 @@ import type {
 } from '../types/crawl';
 import type { AssetRef } from '../types/page';
 import type { SitemapResult } from '../types/sitemap';
-import type { Navigation } from '../types/ssm';
+import type { ContactInfo, Navigation } from '../types/ssm';
 import type { PuppeteerCrawlingContext } from 'crawlee';
 
 puppeteer.use(StealthPlugin());
@@ -102,6 +103,10 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
 
   // SSM: track site navigation (extracted from home page)
   let siteNavigation: Navigation | undefined;
+
+  // SSM: track contact info (aggregated from all pages)
+  const pageContacts: RawContactData[] = [];
+  let jsonLdContact: Partial<ContactInfo> = {};
 
   // get seed URLs
   let seedUrls: string[] = [opts.url];
@@ -275,6 +280,16 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
         siteNavigation = await extractNavigation(page, baseUrl);
       }
 
+      // SSM: extract contact info from page
+      const rawContact = await extractContactFromPage(page);
+      pageContacts.push(rawContact);
+
+      // SSM: extract contact from JSON-LD (merge into running aggregate)
+      if (structuredData) {
+        const ldContact = extractContactFromJsonLd(structuredData);
+        jsonLdContact = { ...jsonLdContact, ...ldContact };
+      }
+
       // log page completion (standard/verbose only)
       if (opts.logLevel !== 'minimal') {
         const internalLinks = links.filter((l) => l.isInternal).length;
@@ -369,6 +384,9 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
   const assets = Array.from(assetMap.values());
   const platform = detectPlatform(pages, assets);
 
+  // SSM: aggregate contact info
+  const contact = aggregateContactInfo(pageContacts, jsonLdContact);
+
   const result: CrawlResult = {
     baseUrl: baseUrl.origin,
     startedAt,
@@ -384,6 +402,7 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
     },
     platform,
     navigation: siteNavigation,
+    contact,
   };
 
   return result;
