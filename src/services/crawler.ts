@@ -5,7 +5,20 @@ import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import { extractAssets, extractLinks, extractMetadata, extractStructuredData, extractText } from './extractor';
 import { detectPlatform } from './platform-detector';
 import { getSitemapUrl, parseSitemap } from './sitemap';
-import { aggregateContactInfo, classifyPage, extractContactFromJsonLd, extractContactFromPage, extractNavigation } from './ssm';
+import {
+  aggregateContactInfo,
+  aggregateImages,
+  aggregateProducts,
+  aggregateServices,
+  classifyPage,
+  curatePageImages,
+  extractContactFromJsonLd,
+  extractContactFromPage,
+  extractImagesFromPage,
+  extractNavigation,
+  extractProductsFromJsonLd,
+  extractServicesFromJsonLd,
+} from './ssm';
 import { geoPresets } from '../config/geo';
 import { resolveIncludeOptions } from '../config/output';
 import { randomDelay, randomUserAgent, randomViewport, sleep } from '../config/stealth';
@@ -22,7 +35,7 @@ import type {
 } from '../types/crawl';
 import type { AssetRef } from '../types/page';
 import type { SitemapResult } from '../types/sitemap';
-import type { ContactInfo, Navigation } from '../types/ssm';
+import type { ContactInfo, CuratedImage, ExtractedProduct, ExtractedService, Navigation } from '../types/ssm';
 import type { PuppeteerCrawlingContext } from 'crawlee';
 
 puppeteer.use(StealthPlugin());
@@ -107,6 +120,11 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
   // SSM: track contact info (aggregated from all pages)
   const pageContacts: RawContactData[] = [];
   let jsonLdContact: Partial<ContactInfo> = {};
+
+  // SSM: track images, products, services (aggregated from all pages)
+  const allImages: CuratedImage[] = [];
+  const allProducts: ExtractedProduct[] = [];
+  const allServices: ExtractedService[] = [];
 
   // get seed URLs
   let seedUrls: string[] = [opts.url];
@@ -290,6 +308,19 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
         jsonLdContact = { ...jsonLdContact, ...ldContact };
       }
 
+      // SSM: extract and curate images
+      const rawImages = await extractImagesFromPage(page, baseUrl);
+      const curatedImages = curatePageImages(rawImages, url, metadata, structuredData, depth === 0);
+      allImages.push(...curatedImages);
+
+      // SSM: extract products and services from JSON-LD
+      if (structuredData) {
+        const products = extractProductsFromJsonLd(structuredData, url);
+        const services = extractServicesFromJsonLd(structuredData, url);
+        allProducts.push(...products);
+        allServices.push(...services);
+      }
+
       // log page completion (standard/verbose only)
       if (opts.logLevel !== 'minimal') {
         const internalLinks = links.filter((l) => l.isInternal).length;
@@ -387,6 +418,11 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
   // SSM: aggregate contact info
   const contact = aggregateContactInfo(pageContacts, jsonLdContact);
 
+  // SSM: aggregate images, products, services
+  const curatedImages = aggregateImages(allImages);
+  const products = aggregateProducts(allProducts);
+  const services = aggregateServices(allServices);
+
   const result: CrawlResult = {
     baseUrl: baseUrl.origin,
     startedAt,
@@ -403,6 +439,9 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
     platform,
     navigation: siteNavigation,
     contact,
+    images: curatedImages.length > 0 ? curatedImages : void 0,
+    products: products.length > 0 ? products : void 0,
+    services: services.length > 0 ? services : void 0,
   };
 
   return result;

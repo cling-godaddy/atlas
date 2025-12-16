@@ -106,3 +106,53 @@ export interface ContactInfo {
   hours?: HoursInfo[];
   social?: SocialLink[];
 }
+
+/**
+ * Image category for curation
+ */
+export type ImageCategory = 'logo' | 'hero' | 'product' | 'gallery' | 'icon' | 'other';
+
+/**
+ * Curated image with categorization and priority
+ */
+export interface CuratedImage {
+  url: string;
+  alt?: string;
+  category: ImageCategory;
+  priority: number;
+  width?: number;
+  height?: number;
+  signals: string[];
+  sourceUrl: string;
+}
+
+/**
+ * Price information
+ */
+export interface PriceInfo {
+  amount: number;
+  currency: string;
+}
+
+/**
+ * Extracted product from JSON-LD
+ */
+export interface ExtractedProduct {
+  name: string;
+  url: string;
+  price?: PriceInfo;
+  images?: string[];
+  description?: string;
+  sku?: string;
+  brand?: string;
+}
+
+/**
+ * Extracted service from JSON-LD
+ */
+export interface ExtractedService {
+  name: string;
+  url: string;
+  description?: string;
+  price?: PriceInfo;
+}

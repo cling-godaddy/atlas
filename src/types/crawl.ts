@@ -1,7 +1,7 @@
 import type { ResolvedConfig } from './config';
 import type { PageData } from './page';
 import type { SitemapResult } from './sitemap';
-import type { ContactInfo, Navigation } from './ssm';
+import type { ContactInfo, CuratedImage, ExtractedProduct, ExtractedService, Navigation } from './ssm';
 
 /**
  * Structured data extracted from page (JSON-LD, RDFa, microdata)
@@ -147,4 +147,13 @@ export interface CrawlResult {
 
   /** Aggregated contact information */
   contact?: ContactInfo;
+
+  /** Curated images with categorization and priority */
+  images?: CuratedImage[];
+
+  /** Extracted products from JSON-LD */
+  products?: ExtractedProduct[];
+
+  /** Extracted services from JSON-LD */
+  services?: ExtractedService[];
 }
