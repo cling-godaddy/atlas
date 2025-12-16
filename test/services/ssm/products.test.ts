@@ -19,10 +19,10 @@ describe('extractProductsFromJsonLd', () => {
     };
     const result = extractProductsFromJsonLd(structuredData, 'https://example.com/product/123');
     expect(result).toHaveLength(1);
-    expect(result[0].name).toBe('Test Product');
-    expect(result[0].description).toBe('A great product');
-    expect(result[0].sku).toBe('SKU123');
-    expect(result[0].url).toBe('https://example.com/product/123');
+    expect(result[0]!.name).toBe('Test Product');
+    expect(result[0]!.description).toBe('A great product');
+    expect(result[0]!.sku).toBe('SKU123');
+    expect(result[0]!.url).toBe('https://example.com/product/123');
   });
 
   it('should extract product with price', () => {
@@ -41,7 +41,7 @@ describe('extractProductsFromJsonLd', () => {
       microdata: [],
     };
     const result = extractProductsFromJsonLd(structuredData, 'https://example.com/');
-    expect(result[0].price).toEqual({ amount: 29.99, currency: 'USD' });
+    expect(result[0]!.price).toEqual({ amount: 29.99, currency: 'USD' });
   });
 
   it('should extract product with string price', () => {
@@ -59,7 +59,7 @@ describe('extractProductsFromJsonLd', () => {
       microdata: [],
     };
     const result = extractProductsFromJsonLd(structuredData, 'https://example.com/');
-    expect(result[0].price).toEqual({ amount: 49.99, currency: 'EUR' });
+    expect(result[0]!.price).toEqual({ amount: 49.99, currency: 'EUR' });
   });
 
   it('should extract product images', () => {
@@ -74,7 +74,7 @@ describe('extractProductsFromJsonLd', () => {
       microdata: [],
     };
     const result = extractProductsFromJsonLd(structuredData, 'https://example.com/');
-    expect(result[0].images).toEqual(['https://example.com/img1.jpg', 'https://example.com/img2.jpg']);
+    expect(result[0]!.images).toEqual(['https://example.com/img1.jpg', 'https://example.com/img2.jpg']);
   });
 
   it('should extract brand name', () => {
@@ -89,7 +89,7 @@ describe('extractProductsFromJsonLd', () => {
       microdata: [],
     };
     const result = extractProductsFromJsonLd(structuredData, 'https://example.com/');
-    expect(result[0].brand).toBe('Acme');
+    expect(result[0]!.brand).toBe('Acme');
   });
 
   it('should return empty array for no products', () => {
@@ -121,8 +121,8 @@ describe('extractServicesFromJsonLd', () => {
     };
     const result = extractServicesFromJsonLd(structuredData, 'https://example.com/services');
     expect(result).toHaveLength(1);
-    expect(result[0].name).toBe('Consulting');
-    expect(result[0].description).toBe('Expert consulting services');
+    expect(result[0]!.name).toBe('Consulting');
+    expect(result[0]!.description).toBe('Expert consulting services');
   });
 
   it('should extract service with price', () => {
@@ -137,7 +137,7 @@ describe('extractServicesFromJsonLd', () => {
       microdata: [],
     };
     const result = extractServicesFromJsonLd(structuredData, 'https://example.com/');
-    expect(result[0].price).toEqual({ amount: 199, currency: 'USD' });
+    expect(result[0]!.price).toEqual({ amount: 199, currency: 'USD' });
   });
 });
 

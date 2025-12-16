@@ -63,6 +63,13 @@ export default tseslint.config(
     },
   },
   {
+    // test files need non-null assertions for array access due to noUncheckedIndexedAccess
+    files: ['test/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-non-null-assertion': 'off',
+    },
+  },
+  {
     ignores: ['dist/', 'node_modules/', 'coverage/', '*.config.js', '*.config.ts'],
   },
 );

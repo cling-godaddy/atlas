@@ -13,7 +13,7 @@ describe('extractContactFromJsonLd', () => {
     };
     const result = extractContactFromJsonLd(structuredData);
     expect(result.phones).toHaveLength(1);
-    expect(result.phones?.[0].number).toBe('+1-555-123-4567');
+    expect(result.phones![0]!.number).toBe('+1-555-123-4567');
   });
 
   it('should extract email from Organization', () => {
@@ -23,7 +23,7 @@ describe('extractContactFromJsonLd', () => {
     };
     const result = extractContactFromJsonLd(structuredData);
     expect(result.emails).toHaveLength(1);
-    expect(result.emails?.[0].address).toBe('contact@example.com');
+    expect(result.emails![0]!.address).toBe('contact@example.com');
   });
 
   it('should extract address from LocalBusiness', () => {
@@ -45,11 +45,11 @@ describe('extractContactFromJsonLd', () => {
     };
     const result = extractContactFromJsonLd(structuredData);
     expect(result.addresses).toHaveLength(1);
-    expect(result.addresses?.[0].street).toBe('123 Main St');
-    expect(result.addresses?.[0].city).toBe('Springfield');
-    expect(result.addresses?.[0].state).toBe('IL');
-    expect(result.addresses?.[0].zip).toBe('62701');
-    expect(result.addresses?.[0].country).toBe('US');
+    expect(result.addresses![0]!.street).toBe('123 Main St');
+    expect(result.addresses![0]!.city).toBe('Springfield');
+    expect(result.addresses![0]!.state).toBe('IL');
+    expect(result.addresses![0]!.zip).toBe('62701');
+    expect(result.addresses![0]!.country).toBe('US');
   });
 
   it('should extract opening hours', () => {
@@ -67,9 +67,9 @@ describe('extractContactFromJsonLd', () => {
     };
     const result = extractContactFromJsonLd(structuredData);
     expect(result.hours).toHaveLength(2);
-    expect(result.hours?.[0].day).toBe('Monday');
-    expect(result.hours?.[0].open).toBe('09:00');
-    expect(result.hours?.[0].close).toBe('17:00');
+    expect(result.hours![0]!.day).toBe('Monday');
+    expect(result.hours![0]!.open).toBe('09:00');
+    expect(result.hours![0]!.close).toBe('17:00');
   });
 
   it('should extract from ContactPoint array', () => {
@@ -87,11 +87,11 @@ describe('extractContactFromJsonLd', () => {
     };
     const result = extractContactFromJsonLd(structuredData);
     expect(result.phones).toHaveLength(1);
-    expect(result.phones?.[0].number).toBe('+1-555-111-1111');
-    expect(result.phones?.[0].type).toBe('sales');
+    expect(result.phones![0]!.number).toBe('+1-555-111-1111');
+    expect(result.phones![0]!.type).toBe('sales');
     expect(result.emails).toHaveLength(1);
-    expect(result.emails?.[0].address).toBe('support@example.com');
-    expect(result.emails?.[0].type).toBe('customer support');
+    expect(result.emails![0]!.address).toBe('support@example.com');
+    expect(result.emails![0]!.type).toBe('customer support');
   });
 
   it('should return empty object for no data', () => {
@@ -148,8 +148,8 @@ describe('aggregateContactInfo', () => {
     ];
     const result = aggregateContactInfo(pageContacts, {});
     expect(result?.social).toHaveLength(2);
-    expect(result?.social?.[0].platform).toBe('facebook');
-    expect(result?.social?.[1].platform).toBe('twitter');
+    expect(result!.social![0]!.platform).toBe('facebook');
+    expect(result!.social![1]!.platform).toBe('twitter');
   });
 
   it('should prioritize JSON-LD data', () => {
@@ -159,7 +159,7 @@ describe('aggregateContactInfo', () => {
     };
     const result = aggregateContactInfo(pageContacts, jsonLdContact);
     expect(result?.phones).toHaveLength(1);
-    expect(result?.phones?.[0].type).toBe('main');
+    expect(result!.phones![0]!.type).toBe('main');
   });
 
   it('should include JSON-LD addresses and hours', () => {

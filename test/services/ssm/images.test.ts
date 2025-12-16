@@ -27,8 +27,8 @@ describe('curatePageImages', () => {
       },
     ];
     const result = curatePageImages(rawImages, 'https://example.com/', baseMetadata);
-    expect(result[0].category).toBe('logo');
-    expect(result[0].signals).toContain('class:logo');
+    expect(result[0]!.category).toBe('logo');
+    expect(result[0]!.signals).toContain('class:logo');
   });
 
   it('should categorize hero images', () => {
@@ -47,8 +47,8 @@ describe('curatePageImages', () => {
       },
     ];
     const result = curatePageImages(rawImages, 'https://example.com/', baseMetadata);
-    expect(result[0].category).toBe('hero');
-    expect(result[0].signals).toContain('large');
+    expect(result[0]!.category).toBe('hero');
+    expect(result[0]!.signals).toContain('large');
   });
 
   it('should categorize icon images', () => {
@@ -67,8 +67,8 @@ describe('curatePageImages', () => {
       },
     ];
     const result = curatePageImages(rawImages, 'https://example.com/', baseMetadata);
-    expect(result[0].category).toBe('icon');
-    expect(result[0].signals).toContain('icon-size');
+    expect(result[0]!.category).toBe('icon');
+    expect(result[0]!.signals).toContain('icon-size');
   });
 
   it('should categorize gallery images', () => {
@@ -87,8 +87,8 @@ describe('curatePageImages', () => {
       },
     ];
     const result = curatePageImages(rawImages, 'https://example.com/', baseMetadata);
-    expect(result[0].category).toBe('gallery');
-    expect(result[0].signals).toContain('gallery-container');
+    expect(result[0]!.category).toBe('gallery');
+    expect(result[0]!.signals).toContain('gallery-container');
   });
 
   it('should boost priority for og:image', () => {
@@ -111,8 +111,8 @@ describe('curatePageImages', () => {
       ogImage: 'https://example.com/share.jpg',
     };
     const result = curatePageImages(rawImages, 'https://example.com/', metadata);
-    expect(result[0].signals).toContain('og:image');
-    expect(result[0].priority).toBeGreaterThan(3);
+    expect(result[0]!.signals).toContain('og:image');
+    expect(result[0]!.priority).toBeGreaterThan(3);
   });
 
   it('should boost priority for home page', () => {
@@ -132,7 +132,7 @@ describe('curatePageImages', () => {
     ];
     const homeResult = curatePageImages(rawImages, 'https://example.com/', baseMetadata, void 0, true);
     const otherResult = curatePageImages(rawImages, 'https://example.com/page', baseMetadata, void 0, false);
-    expect(homeResult[0].priority).toBeGreaterThan(otherResult[0].priority);
+    expect(homeResult[0]!.priority).toBeGreaterThan(otherResult[0]!.priority);
   });
 });
 
@@ -144,9 +144,9 @@ describe('aggregateImages', () => {
     ];
     const result = aggregateImages(images);
     expect(result).toHaveLength(1);
-    expect(result[0].priority).toBe(5);
-    expect(result[0].signals).toContain('a');
-    expect(result[0].signals).toContain('b');
+    expect(result[0]!.priority).toBe(5);
+    expect(result[0]!.signals).toContain('a');
+    expect(result[0]!.signals).toContain('b');
   });
 
   it('should sort by priority descending', () => {
@@ -156,8 +156,8 @@ describe('aggregateImages', () => {
       { url: 'https://example.com/mid.jpg', category: 'hero' as const, priority: 5, signals: [], sourceUrl: '/' },
     ];
     const result = aggregateImages(images);
-    expect(result[0].url).toBe('https://example.com/high.jpg');
-    expect(result[1].url).toBe('https://example.com/mid.jpg');
-    expect(result[2].url).toBe('https://example.com/low.jpg');
+    expect(result[0]!.url).toBe('https://example.com/high.jpg');
+    expect(result[1]!.url).toBe('https://example.com/mid.jpg');
+    expect(result[2]!.url).toBe('https://example.com/low.jpg');
   });
 });
