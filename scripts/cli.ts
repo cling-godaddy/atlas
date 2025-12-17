@@ -24,9 +24,9 @@ cli
   .option('-e, --exclude <pattern>', 'Exclude URL pattern (repeatable)')
   .option('-p, --prune <pattern>', 'Exclude children but keep parent (repeatable)')
   .option('-s, --seed <path>', 'Additional seed path (repeatable, e.g., /collections/all)')
-  .example('  npm run test:manual https://example.com')
-  .example('  npm run test:manual -- https://books.toscrape.com --max-pages 1000 --max-depth 10')
-  .example('  npm run test:manual -- https://shop.com -p \'/products/*\'')
+  .example('  npm run crawl -- https://example.com')
+  .example('  npm run crawl -- https://books.toscrape.com --max-pages 1000 --max-depth 10')
+  .example('  npm run crawl -- https://shop.com -p \'/products/*\'')
   .action(async (url: string, options: CrawlOptions) => {
     const startTime = Date.now();
 

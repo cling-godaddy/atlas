@@ -46,35 +46,36 @@ console.log(`Found ${result.assets.length} unique assets`);
 
 ## CLI Usage
 
-### Manual Test Crawl
-
-For development and testing, use the manual crawl script:
+### Crawl
 
 ```bash
 # basic crawl
-npm run test:manual https://example.com
+npm run crawl -- https://example.com
 
 # large crawl with custom limits
-npm run test:manual -- https://books.toscrape.com --max-pages 1000 --max-depth 10
+npm run crawl -- https://books.toscrape.com --max-pages 1000 --max-depth 10
 
 # include HTML and text content
-npm run test:manual -- https://example.com --output full
+npm run crawl -- https://example.com --output full
 
-# exclude child pages from product listings
-npm run test:manual -- https://shop.com -p '/products/*'
+# e-commerce site with seed paths and pruning
+npm run crawl -- https://shop.com -s '/collections/all' -p '/products/*'
 
 # multiple prune patterns
-npm run test:manual -- https://shop.com -p '/products/*' -p '/categories/*'
+npm run crawl -- https://shop.com -p '/products/*' -p '/categories/*'
 ```
 
 **Flags:**
 - `--max-pages <number>` - Maximum pages to crawl (default: 100)
 - `--max-depth <number>` - Maximum depth from seed URL (default: 5)
-- `--output <profile>` - Output profile: `minimal`, `standard`, `full` (default: `standard`)
+- `--output <profile>` - Output profile: `minimal`, `standard`, `full`, `catalog` (default: `standard`)
 - `-e, --exclude <pattern>` - Exclude URLs matching pattern (repeatable)
-- `-p, --prune <pattern>` - Exclude child pages but keep parent (repeatable)
+- `-p, --prune <pattern>` - Exclude from hierarchy but still crawl (repeatable)
+- `-s, --seed <path>` - Additional seed paths to crawl (repeatable)
 
 Results are saved to `output/<domain>/<timestamp>.json`
+
+For e-commerce platforms (Shopify, WooCommerce, etc.), a `.catalog.json` with extracted products is auto-generated.
 
 ### Visualize Results
 
