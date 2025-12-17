@@ -71,6 +71,39 @@ function parseImages(image: unknown): string[] | undefined {
 }
 
 /**
+ * Extract images and price from ProductGroup variants
+ */
+function extractFromVariants(variants: unknown): { images: string[]; price: PriceInfo | undefined } {
+  const images: string[] = [];
+  let price: PriceInfo | undefined;
+
+  if (!Array.isArray(variants)) {
+    variants = [variants];
+  }
+
+  for (const variant of variants as unknown[]) {
+    if (!variant || typeof variant !== 'object') continue;
+    const v = variant as Record<string, unknown>;
+
+    // collect images from all variants
+    const variantImage = v.image;
+    if (typeof variantImage === 'string') {
+      images.push(variantImage);
+    } else if (variantImage && typeof variantImage === 'object' && 'url' in variantImage) {
+      const url = safeString((variantImage as Record<string, unknown>).url);
+      if (url) images.push(url);
+    }
+
+    // take price from first variant with offers
+    if (!price && v.offers) {
+      price = parsePrice(v.offers);
+    }
+  }
+
+  return { images: images.length > 0 ? images : [], price };
+}
+
+/**
  * Extract products from JSON-LD structured data
  */
 export function extractProductsFromJsonLd(
@@ -85,16 +118,29 @@ export function extractProductsFromJsonLd(
     if (!item || typeof item !== 'object') continue;
     const obj = item as Record<string, unknown>;
 
-    if (obj['@type'] !== 'Product') continue;
+    const type = obj['@type'] as string;
+    if (type !== 'Product' && type !== 'ProductGroup') continue;
 
     const name = safeString(obj.name);
     if (!name) continue;
 
+    // for ProductGroup, extract from variants
+    let images = parseImages(obj.image);
+    let price = parsePrice(obj.offers);
+
+    if (type === 'ProductGroup' && obj.hasVariant) {
+      const variantData = extractFromVariants(obj.hasVariant);
+      if (!images || images.length === 0) {
+        images = variantData.images.length > 0 ? variantData.images : void 0;
+      }
+      price ??= variantData.price;
+    }
+
     const product: ExtractedProduct = {
       name,
       url: safeString(obj.url) ?? pageUrl,
-      price: parsePrice(obj.offers),
-      images: parseImages(obj.image),
+      price,
+      images,
       description: safeString(obj.description),
       sku: safeString(obj.sku),
       brand: extractBrand(obj.brand),

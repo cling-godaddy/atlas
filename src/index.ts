@@ -3,7 +3,7 @@ export { crawl } from './services/crawler';
 export type { CrawlerOptions } from './services/crawler';
 
 // output
-export { writeOutput, generateOutputPath } from './services/output';
+export { writeOutput, writeCatalogOutput, generateOutputPath } from './services/output';
 export type { OutputOptions } from './services/output';
 
 // visualization

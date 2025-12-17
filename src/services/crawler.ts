@@ -37,8 +37,23 @@ import type { AssetRef } from '../types/page';
 import type { SitemapResult } from '../types/sitemap';
 import type { ContactInfo, CuratedImage, ExtractedProduct, ExtractedService, Navigation } from '../types/ssm';
 import type { PuppeteerCrawlingContext } from 'crawlee';
+import type { Page } from 'puppeteer';
 
 puppeteer.use(StealthPlugin());
+
+async function scrollToBottom(page: Page, maxScrolls = 10): Promise<void> {
+  let previousHeight = 0;
+  for (let i = 0; i < maxScrolls; i++) {
+    const currentHeight = await page.evaluate(() => document.body.scrollHeight);
+    if (currentHeight === previousHeight) break;
+    previousHeight = currentHeight;
+
+    await page.evaluate(() => {
+      window.scrollTo(0, document.body.scrollHeight);
+    });
+    await sleep(1000);
+  }
+}
 
 /**
  * Options for crawling a site
@@ -62,6 +77,8 @@ export interface CrawlerOptions {
   excludePatterns?: string[];
   /** URL patterns to exclude hierarchically (children only, keep parent) */
   hierarchicalExclude?: string[];
+  /** Additional paths to seed the crawl (e.g., '/collections/all') */
+  seedPaths?: string[];
   /** Geo preset for locale spoofing */
   geo?: GeoPreset;
   /** Output detail level */
@@ -81,6 +98,7 @@ const DEFAULT_OPTIONS: Required<Omit<CrawlerOptions, 'url' | 'include'>> & { inc
   headless: true,
   excludePatterns: [],
   hierarchicalExclude: [],
+  seedPaths: [],
   geo: 'us',
   output: 'standard',
   logLevel: 'standard',
@@ -141,8 +159,7 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
       const sameDomain = sitemapResult.urls.filter((u) => isSameDomain(u, baseUrl));
       const filtered = filterUrls(
         sameDomain.length > 0 ? sameDomain : [opts.url],
-        opts.excludePatterns,
-        opts.hierarchicalExclude
+        opts.excludePatterns
       );
       seedUrls = filtered.slice(0, opts.maxPages);
     }
@@ -159,6 +176,21 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
         seedUrls.push(parentUrl);
       }
     }
+  }
+
+  // add user-specified seed paths AT THE FRONT for priority crawling
+  const seedUrlSet = new Set<string>();
+  if (opts.seedPaths.length > 0) {
+    const seedPathUrls: string[] = [];
+    for (const seedPath of opts.seedPaths) {
+      const seedUrl = new URL(seedPath, baseUrl).toString();
+      const normalized = normalizeUrl(seedUrl);
+      seedUrlSet.add(normalized);
+      if (!seedUrls.some((u) => normalizeUrl(u) === normalized)) {
+        seedPathUrls.push(seedUrl);
+      }
+    }
+    seedUrls = [...seedPathUrls, ...seedUrls];
   }
 
   // disable crawlee's default storage
@@ -251,13 +283,19 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
         // timeout is ok, continue with extraction
       }
 
-      // stealth: random scroll to mimic human behavior
-      await page.evaluate(() => {
-        const scrollHeight = document.body.scrollHeight;
-        const scrollTo = Math.random() * Math.min(scrollHeight, 2000);
-        window.scrollTo(0, scrollTo);
-      });
-      await sleep(200 + Math.random() * 300);
+      // for seed URLs, scroll to bottom to trigger lazy loading (e.g., collection pages)
+      const isSeedUrl = seedUrlSet.has(normalizeUrl(url));
+      if (isSeedUrl) {
+        await scrollToBottom(page);
+      } else {
+        // stealth: random scroll to mimic human behavior
+        await page.evaluate(() => {
+          const scrollHeight = document.body.scrollHeight;
+          const scrollTo = Math.random() * Math.min(scrollHeight, 2000);
+          window.scrollTo(0, scrollTo);
+        });
+        await sleep(200 + Math.random() * 300);
+      }
 
       // extract page data (conditional based on output profile)
       const [metadata, links] = await Promise.all([
@@ -344,8 +382,7 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
       if (depth < opts.maxDepth) {
         const internalUrls = links
           .filter((l) => l.isInternal)
-          .filter((l) => !isExcluded(l.url, opts.excludePatterns))
-          .filter((l) => !shouldExcludeHierarchically(l.url, opts.hierarchicalExclude));
+          .filter((l) => !isExcluded(l.url, opts.excludePatterns));
 
         // crawl first occurrence per pattern, skip rest
         // TODO: make configurable via dynamicRoutes: 'skip' | 'once' | 'all'
@@ -408,8 +445,8 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
   console.log(`   Rate: ${(pages.length / (duration / 1000 / 60)).toFixed(2)} pages/min\n`);
   /* eslint-enable no-console */
 
-  // build URL hierarchy
-  const hierarchy = buildUrlHierarchy(pages.map((p) => p.url), baseUrl);
+  // build URL hierarchy (prune patterns only affect visualization, not crawling)
+  const hierarchy = buildUrlHierarchy(pages.map((p) => p.url), baseUrl, opts.hierarchicalExclude);
 
   // detect hosting platform
   const assets = Array.from(assetMap.values());
@@ -501,10 +538,8 @@ function trackAssets(
 /**
  * Filter URLs by exclude patterns
  */
-function filterUrls(urls: string[], excludePatterns: string[], hierarchicalExclude: string[]): string[] {
-  return urls
-    .filter((url) => !isExcluded(url, excludePatterns))
-    .filter((url) => !shouldExcludeHierarchically(url, hierarchicalExclude));
+function filterUrls(urls: string[], excludePatterns: string[]): string[] {
+  return urls.filter((url) => !isExcluded(url, excludePatterns));
 }
 
 /**
@@ -530,8 +565,12 @@ function isSameDomain(url: string, baseUrl: URL): boolean {
 
 /**
  * Build URL hierarchy tree from list of URLs
+ * @param hierarchicalExclude - patterns to exclude from hierarchy (URLs still crawled, just not shown)
  */
-function buildUrlHierarchy(urls: string[], baseUrl: URL): URLHierarchyNode {
+function buildUrlHierarchy(urls: string[], baseUrl: URL, hierarchicalExclude: string[] = []): URLHierarchyNode {
+  // filter out pruned URLs from hierarchy visualization (they're still crawled)
+  const filteredUrls = urls.filter((url) => !shouldExcludeHierarchically(url, hierarchicalExclude));
+
   const root: URLHierarchyNode = {
     segment: '',
     path: '/',
@@ -539,7 +578,7 @@ function buildUrlHierarchy(urls: string[], baseUrl: URL): URLHierarchyNode {
     children: [],
   };
 
-  for (const url of urls) {
+  for (const url of filteredUrls) {
     try {
       const parsed = new URL(url);
       const segments = parsed.pathname.split('/').filter(Boolean);

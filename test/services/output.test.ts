@@ -5,7 +5,8 @@ import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 
 import { generateOutputPath, writeOutput } from '../../src/services/output';
 
-import type { CrawlResult } from '../../src/types/crawl';
+import type { CrawlResult, PlatformDetection } from '../../src/types/crawl';
+import type { ExtractedProduct } from '../../src/types/ssm';
 
 const TEST_OUTPUT_DIR = 'test-output';
 
@@ -133,6 +134,76 @@ describe('writeOutput', () => {
       state: result.state,
       structure: result.structure,
     });
+  });
+
+  it('should auto-generate catalog.json for e-commerce platforms with products', async () => {
+    const result = createTestResult();
+    const platform: PlatformDetection = {
+      platform: 'shopify',
+      confidence: 'high',
+      signals: ['shopify-cdn'],
+    };
+    const products: ExtractedProduct[] = [
+      { name: 'Test Product', url: 'https://example.com/products/test', price: { amount: 99, currency: 'USD' } },
+      { name: 'Another Product', url: 'https://example.com/products/another' },
+    ];
+    result.platform = platform;
+    result.products = products;
+
+    const outputPath = `${TEST_OUTPUT_DIR}/test-ecommerce.json`;
+    const catalogPath = `${TEST_OUTPUT_DIR}/test-ecommerce.catalog.json`;
+
+    await writeOutput(result, outputPath);
+
+    // main output should exist
+    expect(existsSync(outputPath)).toBe(true);
+
+    // catalog should be auto-generated
+    expect(existsSync(catalogPath)).toBe(true);
+    const catalogContent = await readFile(catalogPath, 'utf-8');
+    const catalog = JSON.parse(catalogContent) as ExtractedProduct[];
+
+    expect(catalog).toHaveLength(2);
+    expect(catalog[0]!.name).toBe('Test Product');
+    expect(catalog[1]!.name).toBe('Another Product');
+  });
+
+  it('should not auto-generate catalog for non-ecommerce platforms', async () => {
+    const result = createTestResult();
+    const platform: PlatformDetection = {
+      platform: 'wordpress',
+      confidence: 'high',
+      signals: ['wp-content'],
+    };
+    result.platform = platform;
+    result.products = [{ name: 'Product', url: 'https://example.com/product' }];
+
+    const outputPath = `${TEST_OUTPUT_DIR}/test-wordpress.json`;
+    const catalogPath = `${TEST_OUTPUT_DIR}/test-wordpress.catalog.json`;
+
+    await writeOutput(result, outputPath);
+
+    expect(existsSync(outputPath)).toBe(true);
+    expect(existsSync(catalogPath)).toBe(false);
+  });
+
+  it('should not auto-generate catalog when no products', async () => {
+    const result = createTestResult();
+    const platform: PlatformDetection = {
+      platform: 'shopify',
+      confidence: 'high',
+      signals: ['shopify-cdn'],
+    };
+    result.platform = platform;
+    result.products = [];
+
+    const outputPath = `${TEST_OUTPUT_DIR}/test-no-products.json`;
+    const catalogPath = `${TEST_OUTPUT_DIR}/test-no-products.catalog.json`;
+
+    await writeOutput(result, outputPath);
+
+    expect(existsSync(outputPath)).toBe(true);
+    expect(existsSync(catalogPath)).toBe(false);
   });
 });
 

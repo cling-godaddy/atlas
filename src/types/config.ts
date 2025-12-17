@@ -2,7 +2,7 @@ export type CrawlProfile = 'quick' | 'standard' | 'deep' | 'full';
 
 export type GeoPreset = 'us' | 'uk' | 'eu' | 'asia';
 
-export type OutputProfile = 'minimal' | 'standard' | 'full';
+export type OutputProfile = 'minimal' | 'standard' | 'full' | 'catalog';
 
 export interface IncludeOptions {
   html?: boolean;

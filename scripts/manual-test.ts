@@ -1,7 +1,7 @@
 /* eslint-disable no-console, @typescript-eslint/restrict-template-expressions */
 import cac from 'cac';
 
-import { crawl, writeOutput, generateOutputPath } from '../src/index';
+import { crawl, writeOutput, writeCatalogOutput, generateOutputPath } from '../src/index';
 
 import type { OutputProfile } from '../src/types/config';
 
@@ -11,6 +11,7 @@ interface CrawlOptions {
   output: OutputProfile;
   exclude: string[];
   prune: string[];
+  seed: string[];
 }
 
 const cli = cac('atlas');
@@ -19,9 +20,10 @@ cli
   .command('<url>', 'Crawl a website and generate structured output')
   .option('--max-pages <number>', 'Maximum pages to crawl', { default: 100 })
   .option('--max-depth <number>', 'Maximum depth to traverse', { default: 5 })
-  .option('--output <profile>', 'Output profile: minimal, standard, full', { default: 'standard' })
+  .option('--output <profile>', 'Output profile: minimal, standard, full, catalog', { default: 'standard' })
   .option('-e, --exclude <pattern>', 'Exclude URL pattern (repeatable)')
   .option('-p, --prune <pattern>', 'Exclude children but keep parent (repeatable)')
+  .option('-s, --seed <path>', 'Additional seed path (repeatable, e.g., /collections/all)')
   .example('  npm run test:manual https://example.com')
   .example('  npm run test:manual -- https://books.toscrape.com --max-pages 1000 --max-depth 10')
   .example('  npm run test:manual -- https://shop.com -p \'/products/*\'')
@@ -31,6 +33,7 @@ cli
     // normalize arrays (cac returns single value if used once, array if repeated)
     const excludePatterns = toArray(options.exclude);
     const prunePatterns = toArray(options.prune);
+    const seedPaths = toArray(options.seed);
 
     console.log('🚀 Atlas Manual Test Runner');
     console.log('============================\n');
@@ -42,6 +45,9 @@ cli
     if (prunePatterns.length > 0) {
       console.log(`   Prune patterns: ${prunePatterns.join(', ')}`);
     }
+    if (seedPaths.length > 0) {
+      console.log(`   Seed paths: ${seedPaths.join(', ')}`);
+    }
     console.log('');
 
     try {
@@ -52,15 +58,21 @@ cli
         output: options.output,
         excludePatterns,
         hierarchicalExclude: prunePatterns,
+        seedPaths,
         useSitemap: true,
         headless: true,
         timeout: 30000,
       });
 
       const duration = Date.now() - startTime;
-      const outputPath = generateOutputPath(result.baseUrl);
+      const isCatalog = options.output === 'catalog';
+      const outputPath = generateOutputPath(result.baseUrl, void 0, isCatalog ? 'catalog' : void 0);
 
-      await writeOutput(result, outputPath, { visualize: true });
+      if (isCatalog) {
+        await writeCatalogOutput(result, outputPath);
+      } else {
+        await writeOutput(result, outputPath, { visualize: true });
+      }
 
       console.log('✅ Success!');
       console.log(`⏱️  Duration: ${(duration / 1000).toFixed(2)}s`);
