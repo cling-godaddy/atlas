@@ -3,38 +3,6 @@
  */
 
 /**
- * Confidence level for SSM extractions
- */
-export type Confidence = 'high' | 'medium' | 'low';
-
-/**
- * Page type classification
- */
-export type PageType =
-  | 'home'
-  | 'about'
-  | 'contact'
-  | 'shop'
-  | 'product'
-  | 'category'
-  | 'services'
-  | 'gallery'
-  | 'blog'
-  | 'article'
-  | 'faq'
-  | 'legal'
-  | 'other';
-
-/**
- * Page classification result
- */
-export interface PageClassification {
-  type: PageType;
-  confidence: Confidence;
-  signals: string[];
-}
-
-/**
  * Navigation item
  */
 export interface NavItem {
@@ -108,22 +76,6 @@ export interface ContactInfo {
 }
 
 /**
- * Image category for curation
- */
-export type ImageCategory =
-  | 'logo'
-  | 'hero'
-  | 'product'
-  | 'gallery'
-  | 'icon'
-  | 'team'
-  | 'testimonial'
-  | 'service'
-  | 'partner'
-  | 'content'
-  | 'other';
-
-/**
  * Semantic HTML element container for images
  */
 export type SemanticElement =
@@ -138,28 +90,31 @@ export type SemanticElement =
   | 'other';
 
 /**
- * DOM context for an image
+ * Extracted image with raw contextual data (no inference)
  */
-export interface ImageContext {
-  element: SemanticElement;
-  isFirstInContainer?: boolean;
-}
-
-/**
- * Curated image with categorization and priority
- */
-export interface CuratedImage {
+export interface ExtractedImage {
   url: string;
   alt?: string;
-  category: ImageCategory;
-  priority: number;
   width?: number;
   height?: number;
-  signals: string[];
   sourceUrl: string;
-  context?: ImageContext;
+  /** Semantic container element */
+  element: SemanticElement;
+  /** Position flags */
+  inHeader: boolean;
+  inFooter: boolean;
+  inFirstSection: boolean;
+  nearH1: boolean;
+  /** First image in its semantic container */
+  isFirstInContainer: boolean;
+  /** Where image links to (if wrapped in anchor) */
   linkedTo?: string;
+  /** CSS classes on the image element */
   classes?: string[];
+  /** CSS classes on ancestor elements (up to 5 levels) */
+  ancestorClasses?: string;
+  /** Text content of sibling elements */
+  siblingText?: string;
 }
 
 /**

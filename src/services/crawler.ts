@@ -29,7 +29,7 @@ import type {
 } from '../types/crawl';
 import type { AssetRef } from '../types/page';
 import type { SitemapResult } from '../types/sitemap';
-import type { ContactInfo, CuratedImage, ExtractedProduct, ExtractedService, Navigation } from '../types/ssm';
+import type { ContactInfo, ExtractedImage, ExtractedProduct, ExtractedService, Navigation } from '../types/ssm';
 import type { PuppeteerCrawlingContext } from 'crawlee';
 import type { Page } from 'puppeteer';
 
@@ -134,7 +134,7 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
   let jsonLdContact: Partial<ContactInfo> = {};
 
   // SSM: track images, products, services (aggregated from all pages)
-  const allImages: CuratedImage[] = [];
+  const allImages: ExtractedImage[] = [];
   const allProducts: ExtractedProduct[] = [];
   const allServices: ExtractedService[] = [];
 
@@ -304,7 +304,7 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
       const pageSignals = await extractPageSignals(page, baseUrl);
 
       // build page data
-      const pageData = buildCrawledPage(url, depth, extraction, extraction.structuredData, pageSignals);
+      const pageData = buildCrawledPage(url, depth, extraction, extraction.structuredData);
 
       pages.push(pageData);
       state.visited.push(url);
@@ -315,10 +315,8 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
         page,
         baseUrl,
         url,
-        extraction.metadata,
         pageSignals,
         extraction.structuredData,
-        depth === 0,
         extractNav,
       );
 
@@ -429,7 +427,7 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
   const contact = aggregateContactInfo(pageContacts, jsonLdContact);
 
   // SSM: aggregate images, products, services
-  const curatedImages = aggregateImages(allImages);
+  const extractedImages = aggregateImages(allImages);
   const products = aggregateProducts(allProducts);
   const services = aggregateServices(allServices);
 
@@ -449,7 +447,7 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
     platform,
     navigation: siteNavigation,
     contact,
-    images: curatedImages.length > 0 ? curatedImages : void 0,
+    images: extractedImages.length > 0 ? extractedImages : void 0,
     products: products.length > 0 ? products : void 0,
     services: services.length > 0 ? services : void 0,
   };

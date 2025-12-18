@@ -1,14 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { aggregateImages, curatePageImages } from '../../../src/services/ssm/images';
+import { aggregateImages, extractImages } from '../../../src/services/ssm/images';
 
 import type { RawImageData } from '../../../src/services/ssm/images';
-import type { PageMetadata } from '../../../src/types/page';
-
-const baseMetadata: PageMetadata = {
-  title: 'Test Page',
-  description: '',
-};
 
 function makeRawImage(overrides: Partial<RawImageData> = {}): RawImageData {
   return {
@@ -31,8 +25,8 @@ function makeRawImage(overrides: Partial<RawImageData> = {}): RawImageData {
   };
 }
 
-describe('curatePageImages', () => {
-  it('should categorize logo images', () => {
+describe('extractImages', () => {
+  it('should convert raw images to extracted images', () => {
     const rawImages: RawImageData[] = [
       makeRawImage({
         url: 'https://example.com/logo.png',
@@ -40,252 +34,197 @@ describe('curatePageImages', () => {
         width: 200,
         height: 80,
         inHeader: true,
-        classNames: 'logo',
+        classNames: 'logo navbar-brand',
         element: 'header',
       }),
     ];
-    const result = curatePageImages(rawImages, 'https://example.com/', baseMetadata);
-    expect(result[0]!.category).toBe('logo');
-    expect(result[0]!.signals).toContain('class:logo');
+    const result = extractImages(rawImages, 'https://example.com/');
+
+    expect(result).toHaveLength(1);
+    expect(result[0]!.url).toBe('https://example.com/logo.png');
+    expect(result[0]!.alt).toBe('Company Logo');
+    expect(result[0]!.width).toBe(200);
+    expect(result[0]!.height).toBe(80);
+    expect(result[0]!.sourceUrl).toBe('https://example.com/');
+    expect(result[0]!.element).toBe('header');
+    expect(result[0]!.inHeader).toBe(true);
+    expect(result[0]!.classes).toEqual(['logo', 'navbar-brand']);
   });
 
-  it('should categorize hero images', () => {
+  it('should set sourceUrl from parameter', () => {
+    const rawImages: RawImageData[] = [makeRawImage()];
+    const result = extractImages(rawImages, 'https://example.com/about');
+    expect(result[0]!.sourceUrl).toBe('https://example.com/about');
+  });
+
+  it('should preserve layout context', () => {
     const rawImages: RawImageData[] = [
       makeRawImage({
-        url: 'https://example.com/hero.jpg',
-        alt: 'Hero banner',
-        width: 1200,
-        height: 600,
+        inHeader: true,
+        inFooter: false,
         inFirstSection: true,
         nearH1: true,
-        element: 'main',
+        isFirstInContainer: true,
       }),
     ];
-    const result = curatePageImages(rawImages, 'https://example.com/', baseMetadata);
-    expect(result[0]!.category).toBe('hero');
-    expect(result[0]!.signals).toContain('large');
+    const result = extractImages(rawImages, 'https://example.com/');
+
+    expect(result[0]!.inHeader).toBe(true);
+    expect(result[0]!.inFooter).toBe(false);
+    expect(result[0]!.inFirstSection).toBe(true);
+    expect(result[0]!.nearH1).toBe(true);
+    expect(result[0]!.isFirstInContainer).toBe(true);
   });
 
-  it('should categorize icon images', () => {
+  it('should pass through linkedTo', () => {
+    const rawImages: RawImageData[] = [
+      makeRawImage({ linkedTo: 'https://example.com/' }),
+    ];
+    const result = extractImages(rawImages, 'https://example.com/about');
+    expect(result[0]!.linkedTo).toBe('https://example.com/');
+  });
+
+  it('should exclude linkedTo when null', () => {
+    const rawImages: RawImageData[] = [makeRawImage({ linkedTo: null })];
+    const result = extractImages(rawImages, 'https://example.com/');
+    expect(result[0]!.linkedTo).toBeUndefined();
+  });
+
+  it('should parse CSS classes into array', () => {
+    const rawImages: RawImageData[] = [
+      makeRawImage({ classNames: 'logo navbar-brand img-fluid' }),
+    ];
+    const result = extractImages(rawImages, 'https://example.com/');
+    expect(result[0]!.classes).toEqual(['logo', 'navbar-brand', 'img-fluid']);
+  });
+
+  it('should exclude classes when empty', () => {
+    const rawImages: RawImageData[] = [makeRawImage({ classNames: '' })];
+    const result = extractImages(rawImages, 'https://example.com/');
+    expect(result[0]!.classes).toBeUndefined();
+  });
+
+  it('should handle whitespace in classNames', () => {
+    const rawImages: RawImageData[] = [
+      makeRawImage({ classNames: '  hero-image   main-banner  ' }),
+    ];
+    const result = extractImages(rawImages, 'https://example.com/');
+    expect(result[0]!.classes).toEqual(['hero-image', 'main-banner']);
+  });
+
+  it('should preserve ancestorClasses and siblingText', () => {
     const rawImages: RawImageData[] = [
       makeRawImage({
-        url: 'https://example.com/icon.svg',
-        width: 24,
-        height: 24,
+        ancestorClasses: 'team-section card-wrapper flex-container',
+        siblingText: 'John Smith, CEO',
       }),
     ];
-    const result = curatePageImages(rawImages, 'https://example.com/', baseMetadata);
-    expect(result[0]!.category).toBe('icon');
-    expect(result[0]!.signals).toContain('icon-size');
+    const result = extractImages(rawImages, 'https://example.com/');
+    expect(result[0]!.ancestorClasses).toBe('team-section card-wrapper flex-container');
+    expect(result[0]!.siblingText).toBe('John Smith, CEO');
   });
 
-  it('should categorize gallery images', () => {
+  it('should exclude empty strings from optional fields', () => {
     const rawImages: RawImageData[] = [
       makeRawImage({
-        url: 'https://example.com/gallery-1.jpg',
-        alt: 'Gallery image',
-        parentClasses: 'gallery-grid',
+        alt: '',
+        ancestorClasses: '',
+        siblingText: '',
       }),
     ];
-    const result = curatePageImages(rawImages, 'https://example.com/', baseMetadata);
-    expect(result[0]!.category).toBe('gallery');
-    expect(result[0]!.signals).toContain('section:gallery');
-  });
-
-  it('should boost priority for og:image', () => {
-    const rawImages: RawImageData[] = [
-      makeRawImage({
-        url: 'https://example.com/share.jpg',
-        width: 1200,
-        height: 630,
-      }),
-    ];
-    const metadata: PageMetadata = {
-      ...baseMetadata,
-      ogImage: 'https://example.com/share.jpg',
-    };
-    const result = curatePageImages(rawImages, 'https://example.com/', metadata);
-    expect(result[0]!.signals).toContain('og:image');
-    expect(result[0]!.priority).toBeGreaterThan(3);
-  });
-
-  it('should boost priority for home page', () => {
-    const rawImages: RawImageData[] = [makeRawImage({ alt: 'Test' })];
-    const homeResult = curatePageImages(rawImages, 'https://example.com/', baseMetadata, void 0, true);
-    const otherResult = curatePageImages(rawImages, 'https://example.com/page', baseMetadata, void 0, false);
-    expect(homeResult[0]!.priority).toBeGreaterThan(otherResult[0]!.priority);
-  });
-
-  describe('element context', () => {
-    it('should detect image in nav element', () => {
-      const rawImages: RawImageData[] = [
-        makeRawImage({
-          url: 'https://example.com/nav-logo.png',
-          width: 150,
-          height: 50,
-          element: 'nav',
-          isFirstInContainer: true,
-        }),
-      ];
-      const result = curatePageImages(rawImages, 'https://example.com/', baseMetadata);
-      expect(result[0]!.context?.element).toBe('nav');
-      expect(result[0]!.signals).toContain('element:nav');
-      expect(result[0]!.category).toBe('logo');
-      expect(result[0]!.signals).toContain('nav:first-small');
-    });
-
-    it('should detect image in figure element as gallery', () => {
-      const rawImages: RawImageData[] = [
-        makeRawImage({
-          url: 'https://example.com/photo.jpg',
-          element: 'figure',
-        }),
-      ];
-      const result = curatePageImages(rawImages, 'https://example.com/', baseMetadata);
-      expect(result[0]!.context?.element).toBe('figure');
-      expect(result[0]!.signals).toContain('element:figure');
-      expect(result[0]!.category).toBe('gallery');
-      expect(result[0]!.signals).toContain('figure-element');
-    });
-
-    it('should pass through isFirstInContainer', () => {
-      const rawImages: RawImageData[] = [
-        makeRawImage({
-          element: 'header',
-          isFirstInContainer: true,
-        }),
-        makeRawImage({
-          url: 'https://example.com/second.jpg',
-          element: 'header',
-          isFirstInContainer: false,
-        }),
-      ];
-      const result = curatePageImages(rawImages, 'https://example.com/', baseMetadata);
-      expect(result[0]!.context?.isFirstInContainer).toBe(true);
-      expect(result[1]!.context?.isFirstInContainer).toBeUndefined();
-    });
-  });
-
-  describe('linkedTo', () => {
-    it('should detect image linked to home as logo signal', () => {
-      const rawImages: RawImageData[] = [
-        makeRawImage({
-          url: 'https://example.com/logo.png',
-          width: 180,
-          height: 60,
-          element: 'nav',
-          linkedTo: 'https://example.com/',
-        }),
-      ];
-      const result = curatePageImages(rawImages, 'https://example.com/', baseMetadata);
-      expect(result[0]!.linkedTo).toBe('https://example.com/');
-      expect(result[0]!.signals).toContain('links-home');
-      expect(result[0]!.category).toBe('logo');
-      expect(result[0]!.signals).toContain('home-link:small');
-    });
-
-    it('should pass through linkedTo for non-home links', () => {
-      const rawImages: RawImageData[] = [
-        makeRawImage({
-          url: 'https://example.com/product.jpg',
-          element: 'article',
-          linkedTo: 'https://example.com/products/widget',
-        }),
-      ];
-      const result = curatePageImages(rawImages, 'https://example.com/', baseMetadata);
-      expect(result[0]!.linkedTo).toBe('https://example.com/products/widget');
-      expect(result[0]!.category).toBe('product');
-      expect(result[0]!.signals).toContain('article-linked');
-    });
-
-    it('should not include linkedTo when null', () => {
-      const rawImages: RawImageData[] = [makeRawImage()];
-      const result = curatePageImages(rawImages, 'https://example.com/', baseMetadata);
-      expect(result[0]!.linkedTo).toBeUndefined();
-    });
-  });
-
-  describe('classes', () => {
-    it('should parse CSS classes into array', () => {
-      const rawImages: RawImageData[] = [
-        makeRawImage({
-          classNames: 'logo navbar-brand img-fluid',
-        }),
-      ];
-      const result = curatePageImages(rawImages, 'https://example.com/', baseMetadata);
-      expect(result[0]!.classes).toEqual(['logo', 'navbar-brand', 'img-fluid']);
-    });
-
-    it('should not include classes when empty', () => {
-      const rawImages: RawImageData[] = [makeRawImage({ classNames: '' })];
-      const result = curatePageImages(rawImages, 'https://example.com/', baseMetadata);
-      expect(result[0]!.classes).toBeUndefined();
-    });
-
-    it('should handle whitespace in classNames', () => {
-      const rawImages: RawImageData[] = [
-        makeRawImage({
-          classNames: '  hero-image   main-banner  ',
-        }),
-      ];
-      const result = curatePageImages(rawImages, 'https://example.com/', baseMetadata);
-      expect(result[0]!.classes).toEqual(['hero-image', 'main-banner']);
-    });
+    const result = extractImages(rawImages, 'https://example.com/');
+    expect(result[0]!.alt).toBeUndefined();
+    expect(result[0]!.ancestorClasses).toBeUndefined();
+    expect(result[0]!.siblingText).toBeUndefined();
   });
 });
 
 describe('aggregateImages', () => {
   it('should deduplicate images by URL', () => {
     const images = [
-      { url: 'https://example.com/img.jpg', category: 'other' as const, priority: 5, signals: ['a'], sourceUrl: '/page1' },
-      { url: 'https://example.com/img.jpg', category: 'other' as const, priority: 3, signals: ['b'], sourceUrl: '/page2' },
+      {
+        url: 'https://example.com/img.jpg',
+        sourceUrl: '/page1',
+        element: 'main' as const,
+        inHeader: false,
+        inFooter: false,
+        inFirstSection: false,
+        nearH1: false,
+        isFirstInContainer: false,
+      },
+      {
+        url: 'https://example.com/img.jpg',
+        sourceUrl: '/page2',
+        element: 'article' as const,
+        inHeader: false,
+        inFooter: false,
+        inFirstSection: false,
+        nearH1: false,
+        isFirstInContainer: false,
+      },
     ];
     const result = aggregateImages(images);
     expect(result).toHaveLength(1);
-    expect(result[0]!.priority).toBe(5);
-    expect(result[0]!.signals).toContain('a');
-    expect(result[0]!.signals).toContain('b');
+    expect(result[0]!.sourceUrl).toBe('/page1');
   });
 
-  it('should sort by priority descending', () => {
-    const images = [
-      { url: 'https://example.com/low.jpg', category: 'other' as const, priority: 2, signals: [], sourceUrl: '/' },
-      { url: 'https://example.com/high.jpg', category: 'logo' as const, priority: 8, signals: [], sourceUrl: '/' },
-      { url: 'https://example.com/mid.jpg', category: 'hero' as const, priority: 5, signals: [], sourceUrl: '/' },
-    ];
-    const result = aggregateImages(images);
-    expect(result[0]!.url).toBe('https://example.com/high.jpg');
-    expect(result[1]!.url).toBe('https://example.com/mid.jpg');
-    expect(result[2]!.url).toBe('https://example.com/low.jpg');
-  });
-
-  it('should preserve context from higher priority version', () => {
+  it('should preserve first occurrence', () => {
     const images = [
       {
         url: 'https://example.com/logo.jpg',
-        category: 'logo' as const,
-        priority: 8,
-        signals: ['class:logo'],
         sourceUrl: '/',
-        context: { element: 'nav' as const, isFirstInContainer: true },
+        element: 'nav' as const,
+        inHeader: true,
+        inFooter: false,
+        inFirstSection: true,
+        nearH1: false,
+        isFirstInContainer: true,
         linkedTo: 'https://example.com/',
         classes: ['logo', 'brand'],
       },
       {
         url: 'https://example.com/logo.jpg',
-        category: 'logo' as const,
-        priority: 5,
-        signals: ['header:small'],
         sourceUrl: '/about',
-        context: { element: 'header' as const },
+        element: 'header' as const,
+        inHeader: true,
+        inFooter: false,
+        inFirstSection: false,
+        nearH1: false,
+        isFirstInContainer: false,
       },
     ];
     const result = aggregateImages(images);
+
     expect(result).toHaveLength(1);
-    expect(result[0]!.context?.element).toBe('nav');
+    expect(result[0]!.element).toBe('nav');
     expect(result[0]!.linkedTo).toBe('https://example.com/');
     expect(result[0]!.classes).toEqual(['logo', 'brand']);
-    expect(result[0]!.signals).toContain('class:logo');
-    expect(result[0]!.signals).toContain('header:small');
+  });
+
+  it('should keep unique images', () => {
+    const images = [
+      {
+        url: 'https://example.com/a.jpg',
+        sourceUrl: '/',
+        element: 'main' as const,
+        inHeader: false,
+        inFooter: false,
+        inFirstSection: false,
+        nearH1: false,
+        isFirstInContainer: false,
+      },
+      {
+        url: 'https://example.com/b.jpg',
+        sourceUrl: '/',
+        element: 'main' as const,
+        inHeader: false,
+        inFooter: false,
+        inFirstSection: false,
+        nearH1: false,
+        isFirstInContainer: false,
+      },
+    ];
+    const result = aggregateImages(images);
+    expect(result).toHaveLength(2);
   });
 });

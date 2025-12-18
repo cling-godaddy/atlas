@@ -1,9 +1,8 @@
 import { extractAssets, extractLinks, extractMetadata, extractStructuredData, extractText } from './extractor';
 import {
-  classifyPage,
-  curatePageImages,
   extractContactFromJsonLd,
   extractContactFromPage,
+  extractImages,
   extractNavigation,
   extractPageSignals,
   extractProductsFromJsonLd,
@@ -13,7 +12,7 @@ import {
 import type { RawContactData } from './ssm';
 import type { CrawledPage, StructuredData } from '../types/crawl';
 import type { AssetRef, LinkInfo, PageMetadata } from '../types/page';
-import type { ContactInfo, CuratedImage, ExtractedProduct, ExtractedService, Navigation } from '../types/ssm';
+import type { ContactInfo, ExtractedImage, ExtractedProduct, ExtractedService, Navigation } from '../types/ssm';
 import type { Page } from 'puppeteer';
 
 export interface IncludeOptions {
@@ -35,7 +34,7 @@ export interface PageExtractionResult {
 export interface SSMExtractionResult {
   contact: RawContactData;
   ldContact: Partial<ContactInfo>;
-  images: CuratedImage[];
+  images: ExtractedImage[];
   products: ExtractedProduct[];
   services: ExtractedService[];
   navigation?: Navigation;
@@ -98,18 +97,16 @@ export async function extractSSMData(
   page: Page,
   baseUrl: URL,
   url: string,
-  metadata: PageMetadata,
   pageSignals: Awaited<ReturnType<typeof extractPageSignals>>,
   structuredData?: StructuredData,
-  isHomePage?: boolean,
   extractNav?: boolean,
 ): Promise<SSMExtractionResult> {
   // contact extraction
   const contact = await extractContactFromPage(page);
   const ldContact = structuredData ? extractContactFromJsonLd(structuredData) : {};
 
-  // image curation (uses pre-extracted pageSignals.images)
-  const images = curatePageImages(pageSignals.images, url, metadata, structuredData, isHomePage);
+  // image extraction (raw data, no categorization)
+  const images = extractImages(pageSignals.images, url);
 
   // products and services from JSON-LD
   const products = structuredData ? extractProductsFromJsonLd(structuredData, url) : [];
@@ -122,17 +119,14 @@ export async function extractSSMData(
 }
 
 /**
- * Classify page and build CrawledPage object
+ * Build CrawledPage object from extraction results
  */
 export function buildCrawledPage(
   url: string,
   depth: number,
   extraction: PageExtractionResult,
   structuredData?: StructuredData,
-  pageSignals?: Awaited<ReturnType<typeof extractPageSignals>>,
 ): CrawledPage {
-  const classification = classifyPage(url, extraction.metadata, structuredData, pageSignals);
-
   return {
     url,
     path: urlToPath(url),
@@ -142,7 +136,6 @@ export function buildCrawledPage(
     title: extraction.metadata.title,
     metadata: extraction.metadata,
     links: extraction.links,
-    classification,
     ...(extraction.html !== void 0 && { html: extraction.html }),
     ...(extraction.text !== void 0 && { text: extraction.text }),
     ...(extraction.assets !== void 0 && { assets: extraction.assets }),
@@ -164,7 +157,7 @@ export async function processPage(
   // extract page data
   const extraction = await extractPageData(page, baseUrl, include);
 
-  // extract page signals for classification
+  // extract page signals for image context
   const pageSignals = await extractPageSignals(page, baseUrl);
 
   // extract SSM data
@@ -172,15 +165,13 @@ export async function processPage(
     page,
     baseUrl,
     url,
-    extraction.metadata,
     pageSignals,
     extraction.structuredData,
-    depth === 0,
     extractNav,
   );
 
   // build page object
-  const crawledPage = buildCrawledPage(url, depth, extraction, extraction.structuredData, pageSignals);
+  const crawledPage = buildCrawledPage(url, depth, extraction, extraction.structuredData);
 
   return { page: crawledPage, ssm };
 }
