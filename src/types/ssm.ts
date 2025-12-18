@@ -113,6 +113,28 @@ export interface ContactInfo {
 export type ImageCategory = 'logo' | 'hero' | 'product' | 'gallery' | 'icon' | 'other';
 
 /**
+ * Semantic HTML element container for images
+ */
+export type SemanticElement =
+  | 'nav'
+  | 'header'
+  | 'footer'
+  | 'aside'
+  | 'main'
+  | 'article'
+  | 'figure'
+  | 'section'
+  | 'other';
+
+/**
+ * DOM context for an image
+ */
+export interface ImageContext {
+  element: SemanticElement;
+  isFirstInContainer?: boolean;
+}
+
+/**
  * Curated image with categorization and priority
  */
 export interface CuratedImage {
@@ -124,6 +146,9 @@ export interface CuratedImage {
   height?: number;
   signals: string[];
   sourceUrl: string;
+  context?: ImageContext;
+  linkedTo?: string;
+  classes?: string[];
 }
 
 /**

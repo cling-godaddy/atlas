@@ -1,6 +1,6 @@
 import type { StructuredData } from '../../types/crawl';
 import type { PageMetadata } from '../../types/page';
-import type { CuratedImage, ImageCategory } from '../../types/ssm';
+import type { CuratedImage, ImageCategory, SemanticElement } from '../../types/ssm';
 import type { Page } from 'puppeteer';
 
 export interface RawImageData {
@@ -14,15 +14,38 @@ export interface RawImageData {
   nearH1: boolean;
   classNames: string;
   parentClasses: string;
+  element: SemanticElement;
+  isFirstInContainer: boolean;
+  linkedTo: string | null;
 }
+
+const SEMANTIC_ELEMENTS = ['nav', 'header', 'footer', 'aside', 'main', 'article', 'figure', 'section'] as const;
+const SEMANTIC_SELECTOR = SEMANTIC_ELEMENTS.join(',');
 
 /**
  * Extract raw image data from page DOM
  */
 export async function extractImagesFromPage(page: Page, baseUrl: URL): Promise<RawImageData[]> {
-  const images = await page.evaluate(() => {
-    const results: RawImageData[] = [];
+  const images = await page.evaluate((semanticSelector: string) => {
+    interface RawResult {
+      url: string;
+      alt: string;
+      width: number;
+      height: number;
+      inHeader: boolean;
+      inFooter: boolean;
+      inFirstSection: boolean;
+      nearH1: boolean;
+      classNames: string;
+      parentClasses: string;
+      element: string;
+      isFirstInContainer: boolean;
+      linkedTo: string | null;
+    }
+
+    const results: RawResult[] = [];
     const seen = new Set<string>();
+    const containerFirstImages = new Map<Element, string>();
 
     const imgs = document.querySelectorAll('img[src]');
     for (const img of imgs) {
@@ -51,6 +74,25 @@ export async function extractImagesFromPage(page: Page, baseUrl: URL): Promise<R
         nearH1 = Math.abs(rect.top - h1Rect.top) < 300;
       }
 
+      // find semantic container
+      const container = img.closest(semanticSelector);
+      const element = container ? container.tagName.toLowerCase() : 'other';
+
+      // check if first image in container
+      let isFirstInContainer = false;
+      if (container) {
+        if (!containerFirstImages.has(container)) {
+          containerFirstImages.set(container, src);
+          isFirstInContainer = true;
+        } else {
+          isFirstInContainer = containerFirstImages.get(container) === src;
+        }
+      }
+
+      // check if wrapped in anchor
+      const anchor = img.closest('a');
+      const linkedTo = anchor?.getAttribute('href') ?? null;
+
       results.push({
         url: src,
         alt: img.getAttribute('alt') ?? '',
@@ -62,17 +104,32 @@ export async function extractImagesFromPage(page: Page, baseUrl: URL): Promise<R
         nearH1,
         classNames: img.className,
         parentClasses: img.parentElement?.className ?? '',
+        element,
+        isFirstInContainer,
+        linkedTo,
       });
     }
 
     return results;
-  });
+  }, SEMANTIC_SELECTOR);
 
-  // resolve relative URLs
+  // resolve relative URLs and linkedTo
   return images.map((img) => ({
     ...img,
     url: new URL(img.url, baseUrl).toString(),
+    element: img.element as SemanticElement,
+    linkedTo: img.linkedTo ? new URL(img.linkedTo, baseUrl).toString() : null,
   }));
+}
+
+function isHomeLink(linkedTo: string | null): boolean {
+  if (!linkedTo) return false;
+  try {
+    const url = new URL(linkedTo);
+    return url.pathname === '/' || url.pathname === '';
+  } catch {
+    return linkedTo === '/' || linkedTo === '';
+  }
 }
 
 /**
@@ -82,15 +139,30 @@ function categorizeImage(img: RawImageData): { category: ImageCategory; signals:
   const signals: string[] = [];
   const classes = (img.classNames + ' ' + img.parentClasses).toLowerCase();
 
-  // logo detection
-  if (
-    classes.includes('logo') ||
-    img.alt.toLowerCase().includes('logo') ||
-    (img.inHeader && img.width < 300 && img.height < 150)
-  ) {
-    if (classes.includes('logo')) signals.push('class:logo');
-    if (img.alt.toLowerCase().includes('logo')) signals.push('alt:logo');
-    if (img.inHeader && img.width < 300) signals.push('header:small');
+  // always track element context
+  if (img.element !== 'other') {
+    signals.push(`element:${img.element}`);
+  }
+
+  // track home link
+  const linksHome = isHomeLink(img.linkedTo);
+  if (linksHome) {
+    signals.push('links-home');
+  }
+
+  // logo detection - enhanced with nav context and home link
+  const logoByClass = classes.includes('logo');
+  const logoByAlt = img.alt.toLowerCase().includes('logo');
+  const logoByNavContext = img.element === 'nav' && img.width < 300 && img.isFirstInContainer;
+  const logoByHeaderSmall = img.inHeader && img.width < 300 && img.height < 150;
+  const logoByHomeLink = linksHome && img.width < 300 && (img.element === 'nav' || img.element === 'header');
+
+  if (logoByClass || logoByAlt || logoByNavContext || logoByHeaderSmall || logoByHomeLink) {
+    if (logoByClass) signals.push('class:logo');
+    if (logoByAlt) signals.push('alt:logo');
+    if (logoByNavContext) signals.push('nav:first-small');
+    if (logoByHeaderSmall) signals.push('header:small');
+    if (logoByHomeLink) signals.push('home-link:small');
     return { category: 'logo', signals };
   }
 
@@ -110,28 +182,38 @@ function categorizeImage(img: RawImageData): { category: ImageCategory; signals:
     return { category: 'icon', signals };
   }
 
-  // gallery detection (in grid-like container)
+  // gallery detection - enhanced with figure element
   if (
+    img.element === 'figure' ||
     classes.includes('gallery') ||
     classes.includes('grid') ||
     classes.includes('carousel') ||
     classes.includes('slider')
   ) {
-    signals.push('gallery-container');
+    if (img.element === 'figure') signals.push('figure-element');
+    if (classes.includes('gallery') || classes.includes('grid') || classes.includes('carousel') || classes.includes('slider')) {
+      signals.push('gallery-container');
+    }
     return { category: 'gallery', signals };
   }
 
-  // product detection
+  // product detection - enhanced with article context
   if (
     classes.includes('product') ||
     classes.includes('item') ||
-    img.alt.toLowerCase().includes('product')
+    img.alt.toLowerCase().includes('product') ||
+    (img.element === 'article' && img.linkedTo)
   ) {
-    signals.push('product-context');
+    if (classes.includes('product') || classes.includes('item') || img.alt.toLowerCase().includes('product')) {
+      signals.push('product-context');
+    }
+    if (img.element === 'article' && img.linkedTo) {
+      signals.push('article-linked');
+    }
     return { category: 'product', signals };
   }
 
-  return { category: 'other', signals: [] };
+  return { category: 'other', signals };
 }
 
 /**
@@ -217,6 +299,11 @@ export function curatePageImages(
 
     const priority = calculatePriority(img, category, isOgImage, isJsonLdImage, isHomePage ?? false);
 
+    // parse CSS classes into array
+    const classes = img.classNames
+      .split(/\s+/)
+      .filter((c) => c.length > 0);
+
     return {
       url: img.url,
       alt: img.alt || void 0,
@@ -226,6 +313,12 @@ export function curatePageImages(
       height: img.height || void 0,
       signals,
       sourceUrl: pageUrl,
+      context: {
+        element: img.element,
+        isFirstInContainer: img.isFirstInContainer || void 0,
+      },
+      linkedTo: img.linkedTo ?? void 0,
+      classes: classes.length > 0 ? classes : void 0,
     };
   });
 }
