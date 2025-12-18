@@ -2,7 +2,7 @@ import { Configuration, PuppeteerCrawler } from 'crawlee';
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 
-import { extractAssets, extractLinks, extractMetadata, extractStructuredData, extractText } from './extractor';
+import { buildCrawledPage, extractPageData, extractSSMData } from './page-processor';
 import { detectPlatform } from './platform-detector';
 import { getSitemapUrl, parseSitemap } from './sitemap';
 import {
@@ -10,20 +10,14 @@ import {
   aggregateImages,
   aggregateProducts,
   aggregateServices,
-  classifyPage,
-  curatePageImages,
-  extractContactFromJsonLd,
-  extractContactFromPage,
-  extractImagesFromPage,
-  extractNavigation,
-  extractProductsFromJsonLd,
-  extractServicesFromJsonLd,
+  extractPageSignals,
 } from './ssm';
 import { geoPresets } from '../config/geo';
 import { resolveIncludeOptions } from '../config/output';
 import { randomDelay, randomUserAgent, randomViewport, sleep } from '../config/stealth';
 import { extractParentPaths, isDynamicUrl, normalizeUrl, shouldExcludeHierarchically, shouldExcludeUrl } from '../utils/url';
 
+import type { IncludeOptions as PageIncludeOptions } from './page-processor';
 import type { RawContactData } from './ssm';
 import type { GeoPreset, IncludeOptions, OutputProfile, ResolvedConfig } from '../types/config';
 import type {
@@ -298,89 +292,68 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
       }
 
       // extract page data (conditional based on output profile)
-      const [metadata, links] = await Promise.all([
-        extractMetadata(page),
-        extractLinks(page, baseUrl),
-      ]);
+      const pageIncludeOpts: PageIncludeOptions = {
+        html: includeOpts.html,
+        text: includeOpts.text,
+        assets: includeOpts.assets,
+        structuredData: includeOpts.structuredData,
+      };
+      const extraction = await extractPageData(page, baseUrl, pageIncludeOpts);
 
-      const assets = includeOpts.assets ? await extractAssets(page, baseUrl) : void 0;
-      const text = includeOpts.text ? await extractText(page) : void 0;
-      const structuredData = includeOpts.structuredData ? await extractStructuredData(page) : void 0;
-      const html = includeOpts.html ? await page.content() : void 0;
-
-      // SSM: classify page type
-      const classification = classifyPage(url, metadata, structuredData);
+      // SSM: extract page signals (unified DOM traversal for layout, content, images)
+      const pageSignals = await extractPageSignals(page, baseUrl);
 
       // build page data
-      const pageData: CrawledPage = {
-        url,
-        path: urlToPath(url),
-        crawledAt: new Date().toISOString(),
-        statusCode: 200,
-        depth,
-        title: metadata.title,
-        metadata,
-        links,
-        classification,
-        ...(html !== void 0 && { html }),
-        ...(text !== void 0 && { text }),
-        ...(assets !== void 0 && { assets }),
-        ...(structuredData !== void 0 && { structuredData }),
-      };
+      const pageData = buildCrawledPage(url, depth, extraction, extraction.structuredData, pageSignals);
 
       pages.push(pageData);
       state.visited.push(url);
 
-      // SSM: extract navigation from home page
-      if (depth === 0 && !siteNavigation) {
-        siteNavigation = await extractNavigation(page, baseUrl);
-      }
+      // SSM: extract semantic data (contact, images, products, services, navigation)
+      const extractNav = depth === 0 && !siteNavigation;
+      const ssm = await extractSSMData(
+        page,
+        baseUrl,
+        url,
+        extraction.metadata,
+        pageSignals,
+        extraction.structuredData,
+        depth === 0,
+        extractNav,
+      );
 
-      // SSM: extract contact info from page
-      const rawContact = await extractContactFromPage(page);
-      pageContacts.push(rawContact);
-
-      // SSM: extract contact from JSON-LD (merge into running aggregate)
-      if (structuredData) {
-        const ldContact = extractContactFromJsonLd(structuredData);
-        jsonLdContact = { ...jsonLdContact, ...ldContact };
-      }
-
-      // SSM: extract and curate images
-      const rawImages = await extractImagesFromPage(page, baseUrl);
-      const curatedImages = curatePageImages(rawImages, url, metadata, structuredData, depth === 0);
-      allImages.push(...curatedImages);
-
-      // SSM: extract products and services from JSON-LD
-      if (structuredData) {
-        const products = extractProductsFromJsonLd(structuredData, url);
-        const services = extractServicesFromJsonLd(structuredData, url);
-        allProducts.push(...products);
-        allServices.push(...services);
+      // accumulate SSM data
+      pageContacts.push(ssm.contact);
+      jsonLdContact = { ...jsonLdContact, ...ssm.ldContact };
+      allImages.push(...ssm.images);
+      allProducts.push(...ssm.products);
+      allServices.push(...ssm.services);
+      if (ssm.navigation) {
+        siteNavigation = ssm.navigation;
       }
 
       // log page completion (standard/verbose only)
       if (opts.logLevel !== 'minimal') {
-        const internalLinks = links.filter((l) => l.isInternal).length;
-        const externalLinks = links.length - internalLinks;
+        const internalLinks = extraction.links.filter((l) => l.isInternal).length;
+        const externalLinks = extraction.links.length - internalLinks;
         const logParts = [`✓ ${url}`, `links: ${String(internalLinks)} internal, ${String(externalLinks)} external`];
 
         if (opts.logLevel === 'verbose') {
-          if (assets) logParts.push(`assets: ${String(assets.length)}`);
-          if (text) logParts.push(`text: ${String(text.length)} chars`);
+          if (extraction.assets) logParts.push(`assets: ${String(extraction.assets.length)}`);
+          if (extraction.text) logParts.push(`text: ${String(extraction.text.length)} chars`);
         }
 
         log.info(logParts.join(' | '));
       }
 
       // track assets with referencedBy
-      if (assets) {
-        trackAssets(assets, url, assetMap);
+      if (extraction.assets) {
+        trackAssets(extraction.assets, url, assetMap);
       }
 
       // enqueue internal links
       if (depth < opts.maxDepth) {
-        const internalUrls = links
+        const internalUrls = extraction.links
           .filter((l) => l.isInternal)
           .filter((l) => !isExcluded(l.url, opts.excludePatterns));
 
@@ -482,35 +455,6 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
   };
 
   return result;
-}
-
-/**
- * Convert URL to local path
- */
-function urlToPath(url: string): string {
-  try {
-    const parsed = new URL(url);
-    let path = parsed.pathname;
-
-    // remove leading slash
-    if (path.startsWith('/')) {
-      path = path.slice(1);
-    }
-
-    // handle root
-    if (!path) {
-      path = 'index';
-    }
-
-    // add .html if no extension
-    if (!path.includes('.')) {
-      path = path.replace(/\/$/, '') + '.html';
-    }
-
-    return path;
-  } catch {
-    return 'unknown.html';
-  }
 }
 
 /**

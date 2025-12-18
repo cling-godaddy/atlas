@@ -130,11 +130,21 @@ describe('aggregateContactInfo', () => {
 
   it('should aggregate emails from multiple pages', () => {
     const pageContacts = [
-      { telLinks: [], mailtoLinks: ['a@example.com'], socialLinks: [], addressText: null },
-      { telLinks: [], mailtoLinks: ['b@example.com'], socialLinks: [], addressText: null },
+      { telLinks: [], mailtoLinks: ['contact@acme.com'], socialLinks: [], addressText: null },
+      { telLinks: [], mailtoLinks: ['info@business.org'], socialLinks: [], addressText: null },
     ];
     const result = aggregateContactInfo(pageContacts, {});
     expect(result?.emails).toHaveLength(2);
+  });
+
+  it('should filter out garbage placeholder emails', () => {
+    const pageContacts = [
+      { telLinks: [], mailtoLinks: ['info@yourwebsite.com', 'valid@company.com'], socialLinks: [], addressText: null },
+      { telLinks: [], mailtoLinks: ['#', 'test@example.com'], socialLinks: [], addressText: null },
+    ];
+    const result = aggregateContactInfo(pageContacts, {});
+    expect(result?.emails).toHaveLength(1);
+    expect(result!.emails![0]!.address).toBe('valid@company.com');
   });
 
   it('should parse social links by platform', () => {
@@ -150,6 +160,30 @@ describe('aggregateContactInfo', () => {
     expect(result?.social).toHaveLength(2);
     expect(result!.social![0]!.platform).toBe('facebook');
     expect(result!.social![1]!.platform).toBe('twitter');
+  });
+
+  it('should filter out share button URLs from social links', () => {
+    const pageContacts = [
+      {
+        telLinks: [],
+        mailtoLinks: [],
+        socialLinks: [
+          'https://facebook.com/realprofile',
+          'http://www.facebook.com/sharer.php?u=https://site.com/page',
+          'https://twitter.com/realuser',
+          'https://twitter.com/share?text=Hello&url=https://site.com',
+          'https://twitter.com/hashtag/trending',
+          'https://twitter.com/user/status/123456789',
+          'http://pinterest.com/pin/create/button/?url=https://site.com',
+          'https://linkedin.com/shareArticle?mini=true&url=https://site.com',
+        ],
+        addressText: null,
+      },
+    ];
+    const result = aggregateContactInfo(pageContacts, {});
+    expect(result?.social).toHaveLength(2);
+    expect(result!.social![0]!.url).toBe('https://facebook.com/realprofile');
+    expect(result!.social![1]!.url).toBe('https://twitter.com/realuser');
   });
 
   it('should prioritize JSON-LD data', () => {

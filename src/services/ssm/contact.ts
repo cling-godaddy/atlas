@@ -29,6 +29,31 @@ function safeString(val: unknown): string | undefined {
   return void 0;
 }
 
+// patterns for placeholder/garbage emails
+const GARBAGE_EMAIL_PATTERNS = [
+  /^#$/,
+  /yourwebsite/i,
+  /yourdomain/i,
+  /example\.com/i,
+  /test@test/i,
+  /email@email/i,
+  /your-?email/i,
+  /info@info/i,
+  /sample/i,
+  /placeholder/i,
+];
+
+/**
+ * Check if an email is a valid, non-placeholder address
+ */
+function isValidEmail(email: string): boolean {
+  // basic format check
+  if (!email.includes('@') || email.length < 5) return false;
+
+  // check for garbage patterns
+  return !GARBAGE_EMAIL_PATTERNS.some((pattern) => pattern.test(email));
+}
+
 /**
  * Extract contact information from page DOM
  */
@@ -166,6 +191,25 @@ export function extractContactFromJsonLd(structuredData?: StructuredData): Parti
   };
 }
 
+// patterns that indicate share buttons, not actual social profiles
+const SHARE_BUTTON_PATTERNS = [
+  /sharer\.php/i,
+  /\/share\?/i,
+  /\/share$/i,
+  /pin\/create/i,
+  /shareArticle/i,
+  /intent\/tweet/i,
+  /\/hashtag\//i,
+  /\/status\//i,
+];
+
+/**
+ * Check if a URL is a share button rather than a social profile
+ */
+function isShareButtonUrl(url: string): boolean {
+  return SHARE_BUTTON_PATTERNS.some((pattern) => pattern.test(url));
+}
+
 /**
  * Parse social links into platform-identified objects
  */
@@ -176,6 +220,9 @@ function parseSocialLinks(urls: string[]): SocialLink[] {
   for (const url of urls) {
     if (seen.has(url)) continue;
     seen.add(url);
+
+    // skip share buttons, hashtag links, status/tweet links
+    if (isShareButtonUrl(url)) continue;
 
     for (const [platform, pattern] of Object.entries(SOCIAL_PLATFORMS)) {
       if (pattern.test(url)) {
@@ -204,7 +251,9 @@ export function aggregateContactInfo(
     phones.set(phone.number, phone);
   }
   for (const email of jsonLdContact.emails ?? []) {
-    emails.set(email.address, email);
+    if (isValidEmail(email.address)) {
+      emails.set(email.address, email);
+    }
   }
 
   // aggregate from page extractions
@@ -215,7 +264,7 @@ export function aggregateContactInfo(
       }
     }
     for (const addr of page.mailtoLinks) {
-      if (!emails.has(addr)) {
+      if (!emails.has(addr) && isValidEmail(addr)) {
         emails.set(addr, { address: addr });
       }
     }

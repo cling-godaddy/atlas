@@ -2,8 +2,32 @@ import { describe, expect, it } from 'vitest';
 
 import { classifyPage } from '../../../src/services/ssm/classification';
 
+import type { PageSignals } from '../../../src/services/ssm/extraction';
 import type { StructuredData } from '../../../src/types/crawl';
 import type { PageMetadata } from '../../../src/types/page';
+
+// helper to create page signals with layout only (minimal for testing)
+function makePageSignals(layout: Partial<PageSignals['layout']>): PageSignals {
+  return {
+    layout: {
+      imageCount: 0,
+      hasImageGrid: false,
+      hasLinkedImages: false,
+      hasLightbox: false,
+      hasContactForm: false,
+      hasPriceElements: false,
+      hasPagination: false,
+      hasDateElements: false,
+      ...layout,
+    },
+    content: {
+      h1Text: '',
+      hasAccordion: false,
+      hasBreadcrumbs: false,
+    },
+    images: [],
+  };
+}
 
 const baseMetadata: PageMetadata = {
   title: '',
@@ -70,6 +94,30 @@ describe('classifyPage', () => {
       const result = classifyPage('https://example.com/privacy-policy', baseMetadata);
       expect(result.type).toBe('legal');
       expect(result.signals).toContain('url:legal');
+    });
+
+    it('should classify gallery page from /gallery', () => {
+      const result = classifyPage('https://example.com/gallery', baseMetadata);
+      expect(result.type).toBe('gallery');
+      expect(result.signals).toContain('url:gallery');
+    });
+
+    it('should classify gallery page from /pictures', () => {
+      const result = classifyPage('https://example.com/pictures', baseMetadata);
+      expect(result.type).toBe('gallery');
+      expect(result.signals).toContain('url:gallery');
+    });
+
+    it('should classify gallery page from /portfolio', () => {
+      const result = classifyPage('https://example.com/portfolio', baseMetadata);
+      expect(result.type).toBe('gallery');
+      expect(result.signals).toContain('url:gallery');
+    });
+
+    it('should classify gallery page from /photos', () => {
+      const result = classifyPage('https://example.com/photos', baseMetadata);
+      expect(result.type).toBe('gallery');
+      expect(result.signals).toContain('url:gallery');
     });
   });
 
@@ -174,6 +222,110 @@ describe('classifyPage', () => {
       };
       const result = classifyPage('https://example.com/about', baseMetadata, structuredData);
       expect(result.type).toBe('about');
+    });
+  });
+
+  describe('layout signals', () => {
+    it('should classify gallery from high image count', () => {
+      const pageSignals = makePageSignals({ imageCount: 15 });
+      const result = classifyPage('https://example.com/random-page', baseMetadata, void 0, pageSignals);
+      expect(result.type).toBe('gallery');
+      expect(result.signals).toContain('layout:high-image-count');
+    });
+
+    it('should classify gallery from image grid', () => {
+      const pageSignals = makePageSignals({ hasImageGrid: true });
+      const result = classifyPage('https://example.com/random-page', baseMetadata, void 0, pageSignals);
+      expect(result.type).toBe('gallery');
+      expect(result.signals).toContain('layout:image-grid');
+    });
+
+    it('should classify gallery from linked images', () => {
+      const pageSignals = makePageSignals({ hasLinkedImages: true });
+      const result = classifyPage('https://example.com/random-page', baseMetadata, void 0, pageSignals);
+      expect(result.type).toBe('gallery');
+      expect(result.signals).toContain('layout:linked-images');
+    });
+
+    it('should classify gallery from lightbox with high confidence', () => {
+      const pageSignals = makePageSignals({ hasLightbox: true });
+      const result = classifyPage('https://example.com/random-page', baseMetadata, void 0, pageSignals);
+      expect(result.type).toBe('gallery');
+      expect(result.signals).toContain('layout:lightbox');
+      expect(result.confidence).toBe('medium'); // lightbox = 2 points
+    });
+
+    it('should boost gallery confidence with multiple layout signals', () => {
+      const pageSignals = makePageSignals({
+        imageCount: 15,
+        hasImageGrid: true,
+        hasLinkedImages: true,
+      });
+      const result = classifyPage('https://example.com/random-page', baseMetadata, void 0, pageSignals);
+      expect(result.type).toBe('gallery');
+      expect(result.confidence).toBe('high'); // 3+ signals
+      expect(result.signals).toContain('layout:high-image-count');
+      expect(result.signals).toContain('layout:image-grid');
+      expect(result.signals).toContain('layout:linked-images');
+    });
+
+    it('should combine URL pattern with layout signals for higher confidence', () => {
+      const pageSignals = makePageSignals({ hasImageGrid: true });
+      const result = classifyPage('https://example.com/pictures', baseMetadata, void 0, pageSignals);
+      expect(result.type).toBe('gallery');
+      expect(result.confidence).toBe('medium'); // url:gallery + layout:image-grid = 2 points
+      expect(result.signals).toContain('url:gallery');
+      expect(result.signals).toContain('layout:image-grid');
+    });
+  });
+
+  describe('context-aware signals', () => {
+    it('should classify contact page from contact form', () => {
+      const pageSignals = makePageSignals({ hasContactForm: true });
+      const result = classifyPage('https://example.com/random-page', baseMetadata, void 0, pageSignals);
+      expect(result.type).toBe('contact');
+      expect(result.signals).toContain('layout:contact-form');
+      expect(result.confidence).toBe('medium'); // 2 points
+    });
+
+    it('should boost shop with price elements', () => {
+      const pageSignals = makePageSignals({ hasPriceElements: true });
+      const result = classifyPage('https://example.com/shop', baseMetadata, void 0, pageSignals);
+      expect(result.type).toBe('shop');
+      expect(result.signals).toContain('url:shop');
+      expect(result.signals).toContain('layout:price-elements');
+    });
+
+    it('should classify shop page with product grid (context-aware)', () => {
+      const pageSignals = makePageSignals({
+        hasImageGrid: true,
+        hasPriceElements: true,
+      });
+      const result = classifyPage('https://example.com/store', baseMetadata, void 0, pageSignals);
+      expect(result.type).toBe('shop');
+      expect(result.signals).toContain('layout:product-grid');
+    });
+
+    it('should classify FAQ from accordion', () => {
+      const pageSignals: PageSignals = {
+        layout: makePageSignals({}).layout,
+        content: { h1Text: '', hasAccordion: true, hasBreadcrumbs: false },
+        images: [],
+      };
+      const result = classifyPage('https://example.com/help', baseMetadata, void 0, pageSignals);
+      expect(result.type).toBe('faq');
+      expect(result.signals).toContain('layout:accordion');
+    });
+
+    it('should classify from h1 content', () => {
+      const pageSignals: PageSignals = {
+        layout: makePageSignals({}).layout,
+        content: { h1Text: 'Contact Us Today', hasAccordion: false, hasBreadcrumbs: false },
+        images: [],
+      };
+      const result = classifyPage('https://example.com/random', baseMetadata, void 0, pageSignals);
+      expect(result.type).toBe('contact');
+      expect(result.signals).toContain('h1:contact');
     });
   });
 });
