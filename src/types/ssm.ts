@@ -110,7 +110,18 @@ export interface ContactInfo {
 /**
  * Image category for curation
  */
-export type ImageCategory = 'logo' | 'hero' | 'product' | 'gallery' | 'icon' | 'other';
+export type ImageCategory =
+  | 'logo'
+  | 'hero'
+  | 'product'
+  | 'gallery'
+  | 'icon'
+  | 'team'
+  | 'testimonial'
+  | 'service'
+  | 'partner'
+  | 'content'
+  | 'other';
 
 /**
  * Semantic HTML element container for images

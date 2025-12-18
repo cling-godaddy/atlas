@@ -22,9 +22,11 @@ function makeRawImage(overrides: Partial<RawImageData> = {}): RawImageData {
     nearH1: false,
     classNames: '',
     parentClasses: '',
+    ancestorClasses: '',
     element: 'other',
     isFirstInContainer: false,
     linkedTo: null,
+    siblingText: '',
     ...overrides,
   };
 }
@@ -87,7 +89,7 @@ describe('curatePageImages', () => {
     ];
     const result = curatePageImages(rawImages, 'https://example.com/', baseMetadata);
     expect(result[0]!.category).toBe('gallery');
-    expect(result[0]!.signals).toContain('gallery-container');
+    expect(result[0]!.signals).toContain('section:gallery');
   });
 
   it('should boost priority for og:image', () => {

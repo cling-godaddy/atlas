@@ -15,12 +15,31 @@ function isHomeLink(linkedTo: string | null): boolean {
   }
 }
 
+// section pattern definitions
+const SECTION_PATTERNS = {
+  team: /\b(team|staff|people|employee|member|author|founder|leadership|management|executive|who-we-are)\b/i,
+  testimonial: /\b(testimonial|review|quote|feedback|client-say|customer-say|endorsement|rating)\b/i,
+  service: /\b(service|solution|feature|benefit|offering|capability|what-we-do)\b/i,
+  partner: /\b(partner|client|sponsor|trusted|logo-?(?:strip|bar|cloud|grid)|brand|company)\b/i,
+  gallery: /\b(gallery|portfolio|project|work|showcase|photo|image|media|lightbox)\b/i,
+  product: /\b(product|item|shop|store|catalog|merchandise|sku)\b/i,
+} as const;
+
+/**
+ * Check if any pattern matches the combined class string
+ */
+function matchesSectionPattern(classes: string, pattern: RegExp): boolean {
+  return pattern.test(classes);
+}
+
 /**
  * Categorize an image based on context signals
  */
 function categorizeImage(img: RawImageData): { category: ImageCategory; signals: string[] } {
   const signals: string[] = [];
   const classes = (img.classNames + ' ' + img.parentClasses).toLowerCase();
+  const allClasses = (classes + ' ' + img.ancestorClasses).toLowerCase();
+  const altLower = img.alt.toLowerCase();
 
   // always track element context
   if (img.element !== 'other') {
@@ -34,8 +53,8 @@ function categorizeImage(img: RawImageData): { category: ImageCategory; signals:
   }
 
   // logo detection - enhanced with nav context and home link
-  const logoByClass = classes.includes('logo');
-  const logoByAlt = img.alt.toLowerCase().includes('logo');
+  const logoByClass = allClasses.includes('logo') && !allClasses.includes('logo-grid') && !allClasses.includes('logo-strip');
+  const logoByAlt = altLower.includes('logo') && img.width < 400;
   const logoByNavContext = img.element === 'nav' && img.width < 300 && img.isFirstInContainer;
   const logoByHeaderSmall = img.inHeader && img.width < 300 && img.height < 150;
   const logoByHomeLink = linksHome && img.width < 300 && (img.element === 'nav' || img.element === 'header');
@@ -65,35 +84,61 @@ function categorizeImage(img: RawImageData): { category: ImageCategory; signals:
     return { category: 'icon', signals };
   }
 
-  // gallery detection - enhanced with figure element
+  // partner/client logos section - check before gallery to catch logo grids
+  if (matchesSectionPattern(allClasses, SECTION_PATTERNS.partner)) {
+    signals.push('section:partner');
+    return { category: 'partner', signals };
+  }
+
+  // team/people section detection
+  if (matchesSectionPattern(allClasses, SECTION_PATTERNS.team)) {
+    signals.push('section:team');
+    return { category: 'team', signals };
+  }
+
+  // testimonial section detection
+  if (matchesSectionPattern(allClasses, SECTION_PATTERNS.testimonial)) {
+    signals.push('section:testimonial');
+    return { category: 'testimonial', signals };
+  }
+
+  // service/feature section detection
+  if (matchesSectionPattern(allClasses, SECTION_PATTERNS.service)) {
+    signals.push('section:service');
+    return { category: 'service', signals };
+  }
+
+  // product detection - class patterns and article context
+  if (
+    matchesSectionPattern(allClasses, SECTION_PATTERNS.product) ||
+    altLower.includes('product') ||
+    (img.element === 'article' && img.linkedTo)
+  ) {
+    if (matchesSectionPattern(allClasses, SECTION_PATTERNS.product)) signals.push('section:product');
+    if (altLower.includes('product')) signals.push('alt:product');
+    if (img.element === 'article' && img.linkedTo) signals.push('article-linked');
+    return { category: 'product', signals };
+  }
+
+  // gallery detection - figure element and class patterns
   if (
     img.element === 'figure' ||
-    classes.includes('gallery') ||
-    classes.includes('grid') ||
+    matchesSectionPattern(allClasses, SECTION_PATTERNS.gallery) ||
     classes.includes('carousel') ||
     classes.includes('slider')
   ) {
     if (img.element === 'figure') signals.push('figure-element');
-    if (classes.includes('gallery') || classes.includes('grid') || classes.includes('carousel') || classes.includes('slider')) {
-      signals.push('gallery-container');
-    }
+    if (matchesSectionPattern(allClasses, SECTION_PATTERNS.gallery)) signals.push('section:gallery');
+    if (classes.includes('carousel') || classes.includes('slider')) signals.push('slider-context');
     return { category: 'gallery', signals };
   }
 
-  // product detection - enhanced with article context
-  if (
-    classes.includes('product') ||
-    classes.includes('item') ||
-    img.alt.toLowerCase().includes('product') ||
-    (img.element === 'article' && img.linkedTo)
-  ) {
-    if (classes.includes('product') || classes.includes('item') || img.alt.toLowerCase().includes('product')) {
-      signals.push('product-context');
+  // content image - medium sized image in main content area
+  if (img.element === 'article' || img.element === 'main' || img.element === 'section') {
+    if (img.width >= 200 && img.height >= 150) {
+      signals.push('content-area');
+      return { category: 'content', signals };
     }
-    if (img.element === 'article' && img.linkedTo) {
-      signals.push('article-linked');
-    }
-    return { category: 'product', signals };
   }
 
   return { category: 'other', signals };
@@ -112,10 +157,20 @@ function calculatePriority(
   let priority = 0;
 
   // base category scores
-  if (category === 'logo') priority += 5;
-  if (category === 'hero') priority += 4;
-  if (category === 'product') priority += 3;
-  if (category === 'gallery') priority += 2;
+  const categoryScores: Record<ImageCategory, number> = {
+    logo: 5,
+    hero: 4,
+    product: 3,
+    team: 3,
+    testimonial: 3,
+    service: 3,
+    partner: 2,
+    gallery: 2,
+    content: 2,
+    icon: 1,
+    other: 0,
+  };
+  priority += categoryScores[category];
 
   // bonus signals
   if (isOgImage) priority += 3;

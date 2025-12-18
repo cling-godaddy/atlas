@@ -15,9 +15,11 @@ export interface RawImageData {
   nearH1: boolean;
   classNames: string;
   parentClasses: string;
+  ancestorClasses: string;
   element: SemanticElement;
   isFirstInContainer: boolean;
   linkedTo: string | null;
+  siblingText: string;
 }
 
 /**
@@ -119,9 +121,39 @@ export async function extractPageSignals(page: Page, baseUrl: URL): Promise<Page
         nearH1: boolean;
         classNames: string;
         parentClasses: string;
+        ancestorClasses: string;
         element: string;
         isFirstInContainer: boolean;
         linkedTo: string | null;
+        siblingText: string;
+      }
+
+      // collect classes from ancestors (up to 5 levels)
+      function getAncestorClasses(el: Element, maxLevels = 5): string {
+        const classes: string[] = [];
+        let current = el.parentElement;
+        let level = 0;
+        while (current && level < maxLevels) {
+          if (current.className && typeof current.className === 'string') {
+            classes.push(current.className);
+          }
+          current = current.parentElement;
+          level++;
+        }
+        return classes.join(' ');
+      }
+
+      // get text from siblings/nearby elements for context
+      function getSiblingText(el: Element): string {
+        const parent = el.parentElement;
+        if (!parent) return '';
+        const texts: string[] = [];
+        for (const child of parent.children) {
+          if (child === el) continue;
+          const text = child.textContent.trim().substring(0, 100);
+          if (text) texts.push(text);
+        }
+        return texts.join(' ').substring(0, 200);
       }
 
       const images: RawResult[] = [];
@@ -204,9 +236,11 @@ export async function extractPageSignals(page: Page, baseUrl: URL): Promise<Page
           nearH1,
           classNames: img.className,
           parentClasses: img.parentElement?.className ?? '',
+          ancestorClasses: getAncestorClasses(img),
           element,
           isFirstInContainer,
           linkedTo,
+          siblingText: getSiblingText(img),
         });
       }
 
