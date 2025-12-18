@@ -186,6 +186,28 @@ describe('aggregateContactInfo', () => {
     expect(result!.social![1]!.url).toBe('https://twitter.com/realuser');
   });
 
+  it('should filter out domain-only social links without profile path', () => {
+    const pageContacts = [
+      {
+        telLinks: [],
+        mailtoLinks: [],
+        socialLinks: [
+          'https://facebook.com/realprofile',
+          'http://facebook.com',
+          'http://facebook.com/',
+          'https://twitter.com/',
+          'http://linkedin.com',
+          'https://instagram.com/actualuser',
+        ],
+        addressText: null,
+      },
+    ];
+    const result = aggregateContactInfo(pageContacts, {});
+    expect(result?.social).toHaveLength(2);
+    expect(result!.social![0]!.url).toBe('https://facebook.com/realprofile');
+    expect(result!.social![1]!.url).toBe('https://instagram.com/actualuser');
+  });
+
   it('should prioritize JSON-LD data', () => {
     const pageContacts = [{ telLinks: ['+1-555-111-1111'], mailtoLinks: [], socialLinks: [], addressText: null }];
     const jsonLdContact: Partial<ContactInfo> = {

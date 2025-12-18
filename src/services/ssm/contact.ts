@@ -211,6 +211,20 @@ function isShareButtonUrl(url: string): boolean {
 }
 
 /**
+ * Check if a social URL has a meaningful profile path
+ * Filters out generic domain-only links like "http://facebook.com"
+ */
+function hasProfilePath(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname.replace(/\/+$/, '');
+    return path.length > 0 && path !== '/';
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Parse social links into platform-identified objects
  */
 function parseSocialLinks(urls: string[]): SocialLink[] {
@@ -221,8 +235,8 @@ function parseSocialLinks(urls: string[]): SocialLink[] {
     if (seen.has(url)) continue;
     seen.add(url);
 
-    // skip share buttons, hashtag links, status/tweet links
-    if (isShareButtonUrl(url)) continue;
+    // skip share buttons, hashtag links, status/tweet links, and generic domain-only links
+    if (isShareButtonUrl(url) || !hasProfilePath(url)) continue;
 
     for (const [platform, pattern] of Object.entries(SOCIAL_PLATFORMS)) {
       if (pattern.test(url)) {
