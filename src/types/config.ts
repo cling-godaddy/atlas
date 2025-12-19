@@ -4,6 +4,15 @@ export type GeoPreset = 'us' | 'uk' | 'eu' | 'asia';
 
 export type OutputProfile = 'minimal' | 'standard' | 'full' | 'catalog';
 
+export type ScreenshotFormat = 'webp' | 'png' | 'jpeg';
+
+export interface ScreenshotConfig {
+  enabled?: boolean;
+  format?: ScreenshotFormat;
+  quality?: number;
+  fullPage?: boolean;
+}
+
 export interface IncludeOptions {
   html?: boolean;
   text?: boolean;

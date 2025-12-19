@@ -2,6 +2,7 @@ import { Configuration, PuppeteerCrawler } from 'crawlee';
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 
+import { generateScreenshotPath, writeScreenshot } from './output';
 import { buildCrawledPage, extractPageData, extractSSMData } from './page-processor';
 import { detectPlatform } from './platform-detector';
 import { getSitemapUrl, parseSitemap } from './sitemap';
@@ -19,12 +20,13 @@ import { extractParentPaths, isDynamicUrl, normalizeUrl, shouldExcludeHierarchic
 
 import type { IncludeOptions as PageIncludeOptions } from './page-processor';
 import type { RawContactData } from './ssm';
-import type { GeoPreset, IncludeOptions, OutputProfile, ResolvedConfig } from '../types/config';
+import type { GeoPreset, IncludeOptions, OutputProfile, ResolvedConfig, ScreenshotConfig, ScreenshotFormat } from '../types/config';
 import type {
   CrawlResult,
   CrawlState,
   CrawledPage,
   ManifestAsset,
+  ScreenshotResult,
   URLHierarchyNode,
 } from '../types/crawl';
 import type { AssetRef } from '../types/page';
@@ -81,9 +83,11 @@ export interface CrawlerOptions {
   include?: IncludeOptions;
   /** Logging verbosity during crawl */
   logLevel?: 'minimal' | 'standard' | 'verbose';
+  /** Homepage screenshot configuration */
+  screenshot?: ScreenshotConfig;
 }
 
-const DEFAULT_OPTIONS: Required<Omit<CrawlerOptions, 'url' | 'include'>> & { include?: IncludeOptions } = {
+const DEFAULT_OPTIONS: Required<Omit<CrawlerOptions, 'url' | 'include' | 'screenshot'>> & { include?: IncludeOptions; screenshot?: ScreenshotConfig } = {
   maxPages: 100,
   maxDepth: 3,
   concurrency: 5,
@@ -137,6 +141,16 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
   const allImages: ExtractedImage[] = [];
   const allProducts: ExtractedProduct[] = [];
   const allServices: ExtractedService[] = [];
+
+  // screenshot state
+  let screenshotResult: ScreenshotResult | undefined;
+  const screenshotFormat: ScreenshotFormat = opts.screenshot?.format ?? 'webp';
+  const screenshotConfig = {
+    enabled: opts.screenshot?.enabled ?? false,
+    format: screenshotFormat,
+    quality: opts.screenshot?.quality ?? 80,
+    fullPage: opts.screenshot?.fullPage ?? true,
+  };
 
   // get seed URLs
   let seedUrls: string[] = [opts.url];
@@ -298,10 +312,51 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
         assets: includeOpts.assets,
         structuredData: includeOpts.structuredData,
       };
-      const extraction = await extractPageData(page, baseUrl, pageIncludeOpts);
 
-      // SSM: extract page signals (unified DOM traversal for layout, content, images)
-      const pageSignals = await extractPageSignals(page, baseUrl);
+      // screenshot capture runs in parallel with extraction (homepage only)
+      const shouldScreenshot = depth === 0 && screenshotConfig.enabled && !screenshotResult;
+
+      const captureScreenshot = async (): Promise<void> => {
+        if (!shouldScreenshot) return;
+        try {
+          const timestamp = startedAt.replace(/[:.]/g, '-');
+          const screenshotPath = generateScreenshotPath(baseUrl.origin, screenshotConfig.format, timestamp);
+
+          // puppeteer screenshot - the one line to swap for Playwright
+          const buffer = await page.screenshot({
+            type: screenshotConfig.format === 'jpeg' ? 'jpeg' : screenshotConfig.format,
+            quality: screenshotConfig.format !== 'png' ? screenshotConfig.quality : void 0,
+            fullPage: screenshotConfig.fullPage,
+          });
+
+          await writeScreenshot(buffer, screenshotPath);
+
+          const viewportSize = page.viewport();
+          screenshotResult = {
+            path: screenshotPath,
+            format: screenshotConfig.format,
+            size: buffer.length,
+            viewport: {
+              width: viewportSize?.width ?? 1366,
+              height: viewportSize?.height ?? 768,
+            },
+            capturedAt: new Date().toISOString(),
+          };
+
+          if (opts.logLevel !== 'minimal') {
+            log.info(`📸 Screenshot captured: ${screenshotPath} (${(buffer.length / 1024).toFixed(1)}KB)`);
+          }
+        } catch (err) {
+          log.error(`Screenshot capture failed: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      };
+
+      // run screenshot + extraction in parallel
+      const [extraction, pageSignals] = await Promise.all([
+        extractPageData(page, baseUrl, pageIncludeOpts),
+        extractPageSignals(page, baseUrl),
+        captureScreenshot(),
+      ]);
 
       // build page data
       const pageData = buildCrawledPage(url, depth, extraction, extraction.structuredData);
@@ -450,6 +505,7 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
     images: extractedImages.length > 0 ? extractedImages : void 0,
     products: products.length > 0 ? products : void 0,
     services: services.length > 0 ? services : void 0,
+    screenshot: screenshotResult,
   };
 
   return result;

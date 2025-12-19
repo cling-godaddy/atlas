@@ -14,6 +14,7 @@ Web crawler and site mapper. Extracts structural data from websites for downstre
   - Structured data (JSON-LD, microdata)
 - **Crawl state tracking** - visited, failed, redirects, skipped URLs
 - **URL hierarchy tree** - site structure visualization
+- **Homepage screenshot** - full-page capture in WebP/PNG/JPEG
 - **Asset manifest** - deduplicated assets with page references
 - **JSON output** - serialized CrawlResult IR
 
@@ -63,6 +64,9 @@ npm run crawl -- https://shop.com -s '/collections/all' -p '/products/*'
 
 # multiple prune patterns
 npm run crawl -- https://shop.com -p '/products/*' -p '/categories/*'
+
+# capture homepage screenshot
+npm run crawl -- https://example.com --screenshot
 ```
 
 **Flags:**
@@ -72,6 +76,8 @@ npm run crawl -- https://shop.com -p '/products/*' -p '/categories/*'
 - `-e, --exclude <pattern>` - Exclude URLs matching pattern (repeatable)
 - `-p, --prune <pattern>` - Exclude from hierarchy but still crawl (repeatable)
 - `-s, --seed <path>` - Additional seed paths to crawl (repeatable)
+- `--screenshot` - Capture homepage screenshot (default: false)
+- `--screenshot-format <format>` - Screenshot format: `webp`, `png`, `jpeg` (default: `webp`)
 
 Results are saved to `output/<domain>/<timestamp>.json`
 
@@ -106,6 +112,11 @@ interface CrawlerOptions {
   useSitemap?: boolean;     // use sitemap.xml for seeds (default: true)
   headless?: boolean;       // run browser headless (default: true)
   excludePatterns?: string[]; // URL patterns to exclude (default: [])
+  screenshot?: {            // homepage screenshot config
+    enabled?: boolean;      // enable capture (default: false)
+    format?: 'webp' | 'png' | 'jpeg'; // image format (default: 'webp')
+    fullPage?: boolean;     // full page scroll capture (default: true)
+  };
 }
 ```
 
@@ -121,6 +132,7 @@ interface CrawlResult {
   assets: ManifestAsset[];
   state: CrawlState;
   structure: SiteStructure;
+  screenshot?: ScreenshotResult; // homepage screenshot metadata
 }
 ```
 

@@ -1,7 +1,18 @@
-import type { ResolvedConfig } from './config';
+import type { ResolvedConfig, ScreenshotFormat } from './config';
 import type { PageData } from './page';
 import type { SitemapResult } from './sitemap';
 import type { ContactInfo, ExtractedImage, ExtractedProduct, ExtractedService, Navigation } from './ssm';
+
+/**
+ * Screenshot capture result metadata
+ */
+export interface ScreenshotResult {
+  path: string;
+  format: ScreenshotFormat;
+  size: number;
+  viewport: { width: number; height: number };
+  capturedAt: string;
+}
 
 /**
  * Structured data extracted from page (JSON-LD, RDFa, microdata)
@@ -156,4 +167,7 @@ export interface CrawlResult {
 
   /** Extracted services from JSON-LD */
   services?: ExtractedService[];
+
+  /** Homepage screenshot metadata */
+  screenshot?: ScreenshotResult;
 }

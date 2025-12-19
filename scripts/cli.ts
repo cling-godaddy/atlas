@@ -3,7 +3,7 @@ import cac from 'cac';
 
 import { crawl, writeOutput, writeCatalogOutput, generateOutputPath } from '../src/index';
 
-import type { OutputProfile } from '../src/types/config';
+import type { OutputProfile, ScreenshotFormat } from '../src/types/config';
 
 interface CrawlOptions {
   maxPages: number;
@@ -12,6 +12,8 @@ interface CrawlOptions {
   exclude: string[];
   prune: string[];
   seed: string[];
+  screenshot: boolean;
+  screenshotFormat: ScreenshotFormat;
 }
 
 const cli = cac('atlas');
@@ -24,6 +26,8 @@ cli
   .option('-e, --exclude <pattern>', 'Exclude URL pattern (repeatable)')
   .option('-p, --prune <pattern>', 'Exclude children but keep parent (repeatable)')
   .option('-s, --seed <path>', 'Additional seed path (repeatable, e.g., /collections/all)')
+  .option('--screenshot', 'Capture homepage screenshot', { default: false })
+  .option('--screenshot-format <format>', 'Screenshot format: webp, png, jpeg', { default: 'webp' })
   .example('  npm run crawl -- https://example.com')
   .example('  npm run crawl -- https://books.toscrape.com --max-pages 1000 --max-depth 10')
   .example('  npm run crawl -- https://shop.com -p \'/products/*\'')
@@ -48,6 +52,9 @@ cli
     if (seedPaths.length > 0) {
       console.log(`   Seed paths: ${seedPaths.join(', ')}`);
     }
+    if (options.screenshot) {
+      console.log(`   Screenshot: enabled (${options.screenshotFormat})`);
+    }
     console.log('');
 
     try {
@@ -62,6 +69,11 @@ cli
         useSitemap: true,
         headless: true,
         timeout: 30000,
+        screenshot: options.screenshot ? {
+          enabled: true,
+          format: options.screenshotFormat,
+          fullPage: true,
+        } : void 0,
       });
 
       const duration = Date.now() - startTime;
@@ -79,6 +91,9 @@ cli
       console.log(`📄 Pages: ${result.pages.length}`);
       console.log(`🖼️  Assets: ${result.assets.length}`);
       console.log(`📊 State: ${result.state.visited.length} visited, ${result.state.failed.length} failed`);
+      if (result.screenshot) {
+        console.log(`📸 Screenshot: ${result.screenshot.path} (${(result.screenshot.size / 1024).toFixed(1)}KB)`);
+      }
       console.log(`💾 Output: ${outputPath}\n`);
 
       const firstPage = result.pages[0];

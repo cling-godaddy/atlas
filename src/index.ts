@@ -12,7 +12,7 @@ export type { VisualizationOptions } from './types/config';
 
 // config
 export { resolveConfig } from './config/resolver';
-export type { CrawlConfig, ResolvedConfig } from './types/config';
+export type { CrawlConfig, ResolvedConfig, ScreenshotConfig, ScreenshotFormat } from './types/config';
 
 // types
 export type {
@@ -20,6 +20,7 @@ export type {
   CrawledPage,
   CrawlState,
   ManifestAsset,
+  ScreenshotResult,
   StructuredData,
   URLHierarchyNode,
   SiteStructure,

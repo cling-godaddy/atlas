@@ -3,7 +3,7 @@ import { dirname } from 'node:path';
 
 import { generateMermaidReport } from './visualize';
 
-import type { VisualizationOptions } from '../types/config';
+import type { ScreenshotFormat, VisualizationOptions } from '../types/config';
 import type { CrawlResult, Platform } from '../types/crawl';
 
 const ECOMMERCE_PLATFORMS: Platform[] = ['shopify', 'bigcommerce', 'woocommerce', 'magento'];
@@ -93,4 +93,36 @@ export function generateOutputPath(baseUrl: string, timestamp?: string, suffix?:
   const ts = timestamp ?? new Date().toISOString().replace(/[:.]/g, '-');
   const ext = suffix ? `.${suffix}.json` : '.json';
   return `output/${hostname}/${ts}${ext}`;
+}
+
+/**
+ * Write screenshot buffer to file
+ */
+export async function writeScreenshot(
+  buffer: Buffer | Uint8Array,
+  outputPath: string,
+  options: Pick<OutputOptions, 'createDirs'> = {},
+): Promise<void> {
+  const opts = { createDirs: true, ...options };
+
+  if (opts.createDirs) {
+    const dir = dirname(outputPath);
+    await mkdir(dir, { recursive: true });
+  }
+
+  await writeFile(outputPath, buffer);
+}
+
+/**
+ * Generate screenshot path alongside JSON output
+ */
+export function generateScreenshotPath(
+  baseUrl: string,
+  format: ScreenshotFormat,
+  timestamp?: string,
+): string {
+  const url = new URL(baseUrl);
+  const hostname = url.hostname;
+  const ts = timestamp ?? new Date().toISOString().replace(/[:.]/g, '-');
+  return `output/${hostname}/${ts}.screenshot.${format}`;
 }
