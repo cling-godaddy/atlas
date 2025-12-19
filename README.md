@@ -78,6 +78,7 @@ npm run crawl -- https://example.com --screenshot
 - `-s, --seed <path>` - Additional seed paths to crawl (repeatable)
 - `--screenshot` - Capture homepage screenshot (default: false)
 - `--screenshot-format <format>` - Screenshot format: `webp`, `png`, `jpeg` (default: `webp`)
+- `--screenshot-delay <ms>` - Wait before capture for animations (default: `1000`)
 
 Results are saved to `output/<domain>/<timestamp>.json`
 
@@ -116,6 +117,7 @@ interface CrawlerOptions {
     enabled?: boolean;      // enable capture (default: false)
     format?: 'webp' | 'png' | 'jpeg'; // image format (default: 'webp')
     fullPage?: boolean;     // full page scroll capture (default: true)
+    delay?: number;         // wait before capture in ms (default: 1000)
   };
 }
 ```

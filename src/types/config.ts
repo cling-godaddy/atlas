@@ -11,6 +11,7 @@ export interface ScreenshotConfig {
   format?: ScreenshotFormat;
   quality?: number;
   fullPage?: boolean;
+  delay?: number;
 }
 
 export interface IncludeOptions {

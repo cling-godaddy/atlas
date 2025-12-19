@@ -150,6 +150,7 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
     format: screenshotFormat,
     quality: opts.screenshot?.quality ?? 80,
     fullPage: opts.screenshot?.fullPage ?? true,
+    delay: opts.screenshot?.delay ?? 1000,
   };
 
   // get seed URLs
@@ -319,6 +320,11 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
       const captureScreenshot = async (): Promise<void> => {
         if (!shouldScreenshot) return;
         try {
+          // wait for animations to settle
+          if (screenshotConfig.delay > 0) {
+            await sleep(screenshotConfig.delay);
+          }
+
           const timestamp = startedAt.replace(/[:.]/g, '-');
           const screenshotPath = generateScreenshotPath(baseUrl.origin, screenshotConfig.format, timestamp);
 

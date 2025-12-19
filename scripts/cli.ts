@@ -14,6 +14,7 @@ interface CrawlOptions {
   seed: string[];
   screenshot: boolean;
   screenshotFormat: ScreenshotFormat;
+  screenshotDelay: number;
 }
 
 const cli = cac('atlas');
@@ -28,6 +29,7 @@ cli
   .option('-s, --seed <path>', 'Additional seed path (repeatable, e.g., /collections/all)')
   .option('--screenshot', 'Capture homepage screenshot', { default: false })
   .option('--screenshot-format <format>', 'Screenshot format: webp, png, jpeg', { default: 'webp' })
+  .option('--screenshot-delay <ms>', 'Wait before screenshot capture (ms)', { default: 1000 })
   .example('  npm run crawl -- https://example.com')
   .example('  npm run crawl -- https://books.toscrape.com --max-pages 1000 --max-depth 10')
   .example('  npm run crawl -- https://shop.com -p \'/products/*\'')
@@ -53,7 +55,7 @@ cli
       console.log(`   Seed paths: ${seedPaths.join(', ')}`);
     }
     if (options.screenshot) {
-      console.log(`   Screenshot: enabled (${options.screenshotFormat})`);
+      console.log(`   Screenshot: enabled (${options.screenshotFormat}, ${options.screenshotDelay}ms delay)`);
     }
     console.log('');
 
@@ -73,6 +75,7 @@ cli
           enabled: true,
           format: options.screenshotFormat,
           fullPage: true,
+          delay: options.screenshotDelay,
         } : void 0,
       });
 
