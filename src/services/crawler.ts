@@ -144,6 +144,7 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
 
   // screenshot state
   let screenshotResult: ScreenshotResult | undefined;
+  let screenshotStarted = false;
   const screenshotFormat: ScreenshotFormat = opts.screenshot?.format ?? 'webp';
   const screenshotConfig = {
     enabled: opts.screenshot?.enabled ?? false,
@@ -151,6 +152,7 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
     quality: opts.screenshot?.quality ?? 80,
     fullPage: opts.screenshot?.fullPage ?? true,
     delay: opts.screenshot?.delay ?? 1000,
+    path: opts.screenshot?.path ?? '/',
   };
 
   // get seed URLs
@@ -314,12 +316,29 @@ export async function crawl(options: CrawlerOptions): Promise<CrawlResult> {
         structuredData: includeOpts.structuredData,
       };
 
-      // screenshot capture runs in parallel with extraction (homepage only)
-      const shouldScreenshot = depth === 0 && screenshotConfig.enabled && !screenshotResult;
+      // screenshot capture runs in parallel with extraction (configurable path, default "/")
+      const currentPath = new URL(url).pathname;
+      const targetPath = screenshotConfig.path.endsWith('/') ? screenshotConfig.path : screenshotConfig.path + '/';
+      const normalizedCurrent = currentPath.endsWith('/') ? currentPath : currentPath + '/';
+      const shouldScreenshot = normalizedCurrent === targetPath && screenshotConfig.enabled && !screenshotStarted;
+      if (shouldScreenshot) screenshotStarted = true;
 
       const captureScreenshot = async (): Promise<void> => {
         if (!shouldScreenshot) return;
         try {
+          // scroll down incrementally to trigger lazy loaders and scroll animations
+          const viewportHeight = page.viewport()?.height ?? 768;
+          const scrollHeight = await page.evaluate(() => document.body.scrollHeight);
+          const scrollSteps = Math.ceil(scrollHeight / viewportHeight);
+
+          for (let i = 1; i <= Math.min(scrollSteps, 10); i++) {
+            await page.evaluate((y) => { window.scrollTo(0, y); }, i * viewportHeight);
+            await sleep(200);
+          }
+
+          // scroll back to top for consistent framing
+          await page.evaluate(() => { window.scrollTo(0, 0); });
+
           // wait for animations to settle
           if (screenshotConfig.delay > 0) {
             await sleep(screenshotConfig.delay);

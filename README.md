@@ -76,9 +76,10 @@ npm run crawl -- https://example.com --screenshot
 - `-e, --exclude <pattern>` - Exclude URLs matching pattern (repeatable)
 - `-p, --prune <pattern>` - Exclude from hierarchy but still crawl (repeatable)
 - `-s, --seed <path>` - Additional seed paths to crawl (repeatable)
-- `--screenshot` - Capture homepage screenshot (default: false)
+- `--screenshot` - Capture page screenshot (default: false)
 - `--screenshot-format <format>` - Screenshot format: `webp`, `png`, `jpeg` (default: `webp`)
 - `--screenshot-delay <ms>` - Wait before capture for animations (default: `1000`)
+- `--screenshot-path <path>` - Page path to screenshot (default: `/`)
 
 Results are saved to `output/<domain>/<timestamp>.json`
 
@@ -113,11 +114,12 @@ interface CrawlerOptions {
   useSitemap?: boolean;     // use sitemap.xml for seeds (default: true)
   headless?: boolean;       // run browser headless (default: true)
   excludePatterns?: string[]; // URL patterns to exclude (default: [])
-  screenshot?: {            // homepage screenshot config
+  screenshot?: {            // page screenshot config
     enabled?: boolean;      // enable capture (default: false)
     format?: 'webp' | 'png' | 'jpeg'; // image format (default: 'webp')
     fullPage?: boolean;     // full page scroll capture (default: true)
     delay?: number;         // wait before capture in ms (default: 1000)
+    path?: string;          // page path to screenshot (default: '/')
   };
 }
 ```

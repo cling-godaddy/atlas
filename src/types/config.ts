@@ -12,6 +12,7 @@ export interface ScreenshotConfig {
   quality?: number;
   fullPage?: boolean;
   delay?: number;
+  path?: string;
 }
 
 export interface IncludeOptions {
